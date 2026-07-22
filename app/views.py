@@ -7,8 +7,84 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Max, Q
 from django.utils import timezone
-from .forms import ClienteForm, ErroConhecidoForm
-from .models import Cliente, ErroConhecido, Task, ChecklistItem, Comment
+from .forms import ClienteForm, ErroConhecidoForm, ReleaseForm, SolicitacaoReleaseForm
+from .models import Cliente, ComentarioSolicitacao, ErroConhecido, Release, SolicitacaoRelease, Task, ChecklistItem, Comment
+
+
+@login_required(login_url='/login/')
+def releases(request):
+    release_form = ReleaseForm()
+    solicitacao_form = SolicitacaoReleaseForm()
+
+    if request.method == 'POST' and 'publicar_release' in request.POST and request.user.is_superuser:
+        release_form = ReleaseForm(request.POST)
+        if release_form.is_valid():
+            release = release_form.save(commit=False)
+            release.publicado_por = request.user
+            release.save()
+            messages.success(request, 'Release publicado com sucesso!')
+            return redirect('releases')
+    elif request.method == 'POST' and 'enviar_solicitacao' in request.POST:
+        solicitacao_form = SolicitacaoReleaseForm(request.POST)
+        if solicitacao_form.is_valid():
+            solicitacao = solicitacao_form.save(commit=False)
+            solicitacao.solicitante = request.user
+            solicitacao.save()
+            messages.success(request, 'Solicitação enviada com sucesso!')
+            return redirect('releases')
+
+    minhas_solicitacoes = SolicitacaoRelease.objects.filter(
+        solicitante=request.user
+    ).prefetch_related('comentarios__autor')
+    return render(request, 'app/releases.html', {
+        'releases': Release.objects.select_related('publicado_por'),
+        'release_form': release_form,
+        'solicitacao_form': solicitacao_form,
+        'minhas_solicitacoes': minhas_solicitacoes,
+        'is_admin': request.user.is_superuser,
+        'pendentes_count': SolicitacaoRelease.objects.filter(status='pendente').count() if request.user.is_superuser else 0,
+    })
+
+
+@login_required(login_url='/login/')
+def solicitacoes_releases(request):
+    if not request.user.is_superuser:
+        messages.error(request, 'Apenas administradores podem acessar todas as solicitações.')
+        return redirect('releases')
+    solicitacoes = SolicitacaoRelease.objects.select_related('solicitante').prefetch_related('comentarios__autor')
+    return render(request, 'app/solicitacoes_releases.html', {'solicitacoes': solicitacoes})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def comentar_solicitacao(request, solicitacao_id):
+    if not request.user.is_superuser:
+        return JsonResponse({'erro': 'Não autorizado.'}, status=403)
+    solicitacao = get_object_or_404(SolicitacaoRelease, id=solicitacao_id)
+    texto = request.POST.get('texto', '').strip()
+    if texto:
+        ComentarioSolicitacao.objects.create(solicitacao=solicitacao, autor=request.user, texto=texto)
+        messages.success(request, 'Comentário adicionado!')
+    else:
+        messages.error(request, 'Digite um comentário.')
+    return redirect('solicitacoes_releases')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def alterar_status_solicitacao(request, solicitacao_id):
+    if not request.user.is_superuser:
+        return JsonResponse({'erro': 'Não autorizado.'}, status=403)
+    solicitacao = get_object_or_404(SolicitacaoRelease, id=solicitacao_id)
+    novo_status = request.POST.get('status')
+    if novo_status not in dict(SolicitacaoRelease.STATUS):
+        messages.error(request, 'Status inválido.')
+        return redirect('solicitacoes_releases')
+    solicitacao.status = novo_status
+    solicitacao.concluido_em = timezone.now() if novo_status == 'feito' else None
+    solicitacao.save(update_fields=['status', 'concluido_em'])
+    messages.success(request, 'Solicitação atualizada!')
+    return redirect('solicitacoes_releases')
 
 
 @login_required(login_url='/login/')

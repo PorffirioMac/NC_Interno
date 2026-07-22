@@ -25,4 +25,8 @@ urlpatterns = [
     path('erros-conhecidos/', views.erros_conhecidos, name='erros_conhecidos'),
     path('erro-conhecido/criar/', views.criar_erro_conhecido, name='criar_erro_conhecido'),
     path('erro-conhecido/<int:erro_id>/', views.detalhes_erro_conhecido, name='detalhes_erro_conhecido'),
+    path('releases/', views.releases, name='releases'),
+    path('releases/solicitacoes/', views.solicitacoes_releases, name='solicitacoes_releases'),
+    path('releases/solicitacao/<int:solicitacao_id>/comentar/', views.comentar_solicitacao, name='comentar_solicitacao'),
+    path('releases/solicitacao/<int:solicitacao_id>/status/', views.alterar_status_solicitacao, name='alterar_status_solicitacao'),
 ]

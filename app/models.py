@@ -50,6 +50,49 @@ class ErroConhecido(models.Model):
     def __str__(self):
         return f'{self.palavra_chave} - {self.get_modulo_display()}'
 
+
+class Release(models.Model):
+    versao = models.CharField('Versão', max_length=30)
+    titulo = models.CharField('Título', max_length=200)
+    conteudo = models.TextField('Releases e correções')
+    publicado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='releases_publicados')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'Versão {self.versao} - {self.titulo}'
+
+
+class SolicitacaoRelease(models.Model):
+    TIPOS = [('feature', 'Nova feature'), ('correcao', 'Correção')]
+    STATUS = [('pendente', 'Pendente'), ('feito', 'Feito')]
+
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    titulo = models.CharField(max_length=200)
+    descricao = models.TextField('Descrição')
+    solicitante = models.ForeignKey(User, on_delete=models.CASCADE, related_name='solicitacoes_release')
+    status = models.CharField(max_length=20, choices=STATUS, default='pendente')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    concluido_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-status', '-criado_em']
+
+    def __str__(self):
+        return self.titulo
+
+
+class ComentarioSolicitacao(models.Model):
+    solicitacao = models.ForeignKey(SolicitacaoRelease, on_delete=models.CASCADE, related_name='comentarios')
+    autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    texto = models.TextField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['criado_em']
+
 # ========== COMERCIAL ==========
 
 class Lead(models.Model):
