@@ -192,6 +192,13 @@ class Task(models.Model):
         blank=True,
         related_name='tarefas',
     )
+    origem_comercial = models.OneToOneField(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ticket_implantacao',
+    )
     prazo = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)

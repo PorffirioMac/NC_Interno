@@ -121,12 +121,22 @@
             </div>
 
             <!-- BOTÃO DE ENCERRAR / REABRIR -->
-            <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #eee; text-align: center;">
+            <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #eee; display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
                 {% if not tarefa.encerrada %}
                 <a href="{% url 'encerrar_tarefa' tarefa.id %}" class="btn" style="background: #28a745;"
                    onclick="return confirm('Tem certeza que deseja encerrar este ticket?')">
                     ✅ Encerrar Ticket
                 </a>
+                {% if tarefa.area == 'comercial' %}
+                    {% if tarefa.ticket_implantacao %}
+                    <a href="{% url 'detalhes_tarefa' tarefa.ticket_implantacao.id %}" class="btn" style="background:#6659d8;">🚀 Ver Ticket de Implantação</a>
+                    {% else %}
+                    <form method="post" action="{% url 'gerar_ticket_implantacao' tarefa.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="background:#6659d8;" onclick="return confirm('Gerar o ticket técnico de implantação?')">🚀 Gerar Ticket de Implantação</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
                 {% else %}
                 <a href="{% url 'reabrir_tarefa' tarefa.id %}" class="btn" style="background: #ffc107; color: #333;">
                     🔄 Reabrir Ticket

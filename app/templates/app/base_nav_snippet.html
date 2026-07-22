@@ -7,6 +7,6 @@
     <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
     <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
     <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
-    <span class="app-version" style="margin-left:auto;">Versão 0.0.1</span>
+    <span class="app-version" style="margin-left:auto;">Versão 0.0.2</span>
 </nav>
 {% endwith %}

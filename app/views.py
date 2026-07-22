@@ -386,6 +386,53 @@ def mover_tarefa(request, tarefa_id):
         'fase_nome': tarefa.get_fase_display(),
     })
 
+
+@login_required(login_url='/login/')
+@require_POST
+def gerar_ticket_implantacao(request, tarefa_id):
+    permitidas = Task.objects.filter(id=tarefa_id, area='comercial', encerrada=False)
+    if not request.user.is_superuser:
+        permitidas = permitidas.filter(responsavel=request.user)
+    comercial = get_object_or_404(permitidas)
+
+    if hasattr(comercial, 'ticket_implantacao'):
+        messages.info(request, 'Este ticket comercial já possui um ticket de implantação.')
+        return redirect('detalhes_tarefa', tarefa_id=comercial.ticket_implantacao.id)
+
+    implantacao = Task.objects.create(
+        titulo=comercial.titulo,
+        descricao=comercial.descricao,
+        area='tickets',
+        fase='implantacao',
+        status='pendente_netcamp',
+        prioridade=comercial.prioridade,
+        responsavel=comercial.responsavel,
+        cliente=comercial.cliente,
+        prazo=comercial.prazo,
+        origem_comercial=comercial,
+    )
+
+    checklist_implantacao = [
+        'SQL/Concentrador/PDV/Terminais/SAT',
+        'Configuração de Impressoras e fixação de IP das mesmas',
+        'Checar se possui demais licenças e se possuir, instalar (E-commerce, Xbot, Marketing, QR Code Mesa)',
+        'Criar grupo de suporte e colocar todos da NetCamp como ADM',
+        'Inserir descrição de atendimento no grupo de suporte',
+        'Instalar Anydesks e colocar nossa senha padrão',
+        'Inserir acessos do Anydesk na planilha ACESSOS ONLINE',
+        'Criar Usuário NetCamp 999 com senha 753951',
+        'Entregar manual de procedimentos básicos do sistema',
+        'Treinamento básico conforme itens do mesmo manual',
+        'Enviar Planilha Fiscal para Contador preencher',
+        'Orientar cliente sobre obrigações e importância da Planilha Fiscal',
+    ]
+    ChecklistItem.objects.bulk_create([
+        ChecklistItem(task=implantacao, descricao=descricao, criado_por=request.user)
+        for descricao in checklist_implantacao
+    ])
+    messages.success(request, 'Ticket técnico de implantação gerado com sucesso!')
+    return redirect('detalhes_tarefa', tarefa_id=implantacao.id)
+
 @login_required(login_url='/login/')
 def atribuir_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
