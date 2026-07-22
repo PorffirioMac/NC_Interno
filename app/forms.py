@@ -1,7 +1,7 @@
 from django import forms
 import re
 
-from .models import Cliente, ErroConhecido
+from .models import Cliente, ErroConhecido, Release, SolicitacaoRelease
 
 
 class ClienteForm(forms.ModelForm):
@@ -83,3 +83,17 @@ class ErroConhecidoForm(forms.ModelForm):
             'descricao': forms.Textarea(attrs={'rows': 7}),
             'clientes': forms.CheckboxSelectMultiple(),
         }
+
+
+class ReleaseForm(forms.ModelForm):
+    class Meta:
+        model = Release
+        fields = ['versao', 'titulo', 'conteudo']
+        widgets = {'conteudo': forms.Textarea(attrs={'rows': 8})}
+
+
+class SolicitacaoReleaseForm(forms.ModelForm):
+    class Meta:
+        model = SolicitacaoRelease
+        fields = ['tipo', 'titulo', 'descricao']
+        widgets = {'descricao': forms.Textarea(attrs={'rows': 5})}
