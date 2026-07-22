@@ -1,0 +1,10 @@
+{% with pagina=request.resolver_match.url_name %}
+<nav class="app-nav" aria-label="Menu principal">
+    <a href="{% url 'dashboard' %}" {% if pagina == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
+    <a href="{% url 'tarefas' %}" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' %}class="active"{% endif %}>📋 Tickets</a>
+    <a href="{% url 'calendario' %}" {% if pagina == 'calendario' %}class="active"{% endif %}>📅 Calendário</a>
+    <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
+    <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
+    <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
+</nav>
+{% endwith %}

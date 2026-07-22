@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novo Cliente - Meu Sistema</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 720px; margin: 30px auto; padding: 0 20px; }
+        .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        h1 { margin-bottom: 24px; font-size: 24px; }
+        .campo { margin-bottom: 17px; }
+        label { display: block; font-weight: 600; margin-bottom: 7px; }
+        input, textarea { width: 100%; padding: 11px 13px; border: 1px solid #ddd; border-radius: 8px; font: inherit; }
+        textarea { resize: vertical; }
+        .erro { color: #b42318; font-size: 13px; margin-top: 5px; }
+        .btn { width: 100%; border: 0; border-radius: 8px; padding: 12px; background: #1a73e8; color: white; font-size: 16px; cursor: pointer; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo"><h2>Cadastro de Cliente</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <a class="voltar" href="{% url 'clientes' %}">← Voltar para Clientes</a>
+        <div class="card">
+            <h1>Novo Cliente</h1>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="campo">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="erro">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn" type="submit">Salvar Cliente</button>
+            </form>
+        </div>
+    </main>
+    <script>
+        const cnpjInput = document.getElementById('id_cnpj');
+        const telefoneInput = document.getElementById('id_telefone');
+        const codigoInput = document.getElementById('id_codigo');
+
+        if (codigoInput) {
+            codigoInput.addEventListener('input', function () {
+                this.value = this.value.replace(/\D/g, '').slice(0, 5);
+            });
+        }
+
+        function formatarCnpj(valor) {
+            const numeros = valor.replace(/\D/g, '').slice(0, 14);
+            return numeros
+                .replace(/^(\d{2})(\d)/, '$1.$2')
+                .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                .replace(/(\/\d{4})(\d)/, '$1-$2');
+        }
+
+        if (cnpjInput) {
+            cnpjInput.addEventListener('input', function () {
+                this.value = formatarCnpj(this.value);
+            });
+            cnpjInput.value = formatarCnpj(cnpjInput.value);
+        }
+
+        function formatarTelefone(valor) {
+            const numeros = valor.replace(/\D/g, '').slice(0, 11);
+            if (numeros.length <= 10) {
+                return numeros
+                    .replace(/^(\d{2})(\d)/, '($1) $2')
+                    .replace(/(\d{4})(\d)/, '$1-$2');
+            }
+            return numeros
+                .replace(/^(\d{2})(\d)/, '($1) $2')
+                .replace(/(\d{5})(\d)/, '$1-$2');
+        }
+
+        if (telefoneInput) {
+            telefoneInput.addEventListener('input', function () {
+                this.value = formatarTelefone(this.value);
+            });
+            telefoneInput.value = formatarTelefone(telefoneInput.value);
+        }
+    </script>
+</body>
+</html>

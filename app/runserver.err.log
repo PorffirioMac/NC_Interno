@@ -1,0 +1,44 @@
+[21/Jul/2026 16:18:45] "GET /login/ HTTP/1.1" 200 1905
+[21/Jul/2026 16:18:45,225] - Broken pipe from ('127.0.0.1', 49835)
+[21/Jul/2026 16:18:58] "GET /login/ HTTP/1.1" 200 1905
+[21/Jul/2026 16:18:58,256] - Broken pipe from ('127.0.0.1', 62760)
+[21/Jul/2026 16:19:28] "GET /tarefas/?view=lista&filtro=todas HTTP/1.1" 200 13580
+[21/Jul/2026 16:19:29] "GET /static/app/theme.js HTTP/1.1" 200 1616
+[21/Jul/2026 16:19:29] "GET /static/app/theme.css?v=20260721-2 HTTP/1.1" 200 6504
+Not Found: /favicon.ico
+[21/Jul/2026 16:19:29] "GET /favicon.ico HTTP/1.1" 404 8296
+[21/Jul/2026 16:20:24] "GET / HTTP/1.1" 200 7724
+[21/Jul/2026 16:20:24] "GET /tarefas/ HTTP/1.1" 200 14293
+[21/Jul/2026 16:20:25] "GET /calendario/ HTTP/1.1" 200 15707
+[21/Jul/2026 16:20:27] "GET / HTTP/1.1" 200 7724
+[21/Jul/2026 16:20:43] "GET /tarefas/?view=lista&filtro=atrasadas HTTP/1.1" 200 12294
+[21/Jul/2026 16:20:47] "GET /tarefas/?view=kanban&filtro=atrasadas HTTP/1.1" 200 13758
+[21/Jul/2026 16:20:51] "GET /tarefas/?view=lista&filtro=atrasadas HTTP/1.1" 200 12294
+[21/Jul/2026 16:20:52] "GET /tarefas/?view=kanban&filtro=atrasadas HTTP/1.1" 200 13758
+[21/Jul/2026 16:20:53] "GET /tarefas/?view=kanban&filtro=todas HTTP/1.1" 200 14293
+[21/Jul/2026 16:20:56] "GET /tarefas/?view=kanban&filtro=minhas HTTP/1.1" 200 13746
+[21/Jul/2026 16:20:56] "GET /tarefas/?view=kanban&filtro=hoje HTTP/1.1" 200 13738
+[21/Jul/2026 16:20:57] "GET /tarefas/?view=kanban&filtro=atrasadas HTTP/1.1" 200 13758
+[21/Jul/2026 16:20:58] "GET /tarefas/?view=kanban&filtro=pendente_cliente HTTP/1.1" 200 13786
+[21/Jul/2026 16:20:59] "GET /tarefas/?view=kanban&filtro=todas HTTP/1.1" 200 14293
+[21/Jul/2026 16:21:00] "POST /tarefa/10/mover/ HTTP/1.1" 200 96
+[21/Jul/2026 16:21:02] "POST /tarefa/10/mover/ HTTP/1.1" 200 76
+[21/Jul/2026 16:21:08] "GET /tarefa/10/ HTTP/1.1" 200 13274
+[21/Jul/2026 16:21:11] "POST /tarefa/10/ HTTP/1.1" 302 0
+[21/Jul/2026 16:21:11] "GET /tarefa/10/ HTTP/1.1" 200 13483
+[21/Jul/2026 16:21:14] "GET /tarefas/ HTTP/1.1" 200 14301
+[21/Jul/2026 16:21:17] "GET / HTTP/1.1" 200 7724
+[21/Jul/2026 16:21:19] "GET /tarefas/ HTTP/1.1" 200 14301
+[21/Jul/2026 16:21:24] "GET /calendario/ HTTP/1.1" 200 15707
+[21/Jul/2026 16:21:31] "GET /clientes/ HTTP/1.1" 200 3808
+[21/Jul/2026 16:21:35] "GET /cliente/1/ HTTP/1.1" 200 5405
+[21/Jul/2026 16:21:43] "GET /tarefas/?view=lista&filtro=todas&cliente=1 HTTP/1.1" 200 13732
+[21/Jul/2026 16:21:51] "GET /clientes/ HTTP/1.1" 200 3808
+[21/Jul/2026 16:21:52] "GET /cliente/1/ HTTP/1.1" 200 5405
+[21/Jul/2026 16:21:53] "GET /tarefas/?view=lista&filtro=todas&cliente=1 HTTP/1.1" 200 13732
+[21/Jul/2026 16:21:57] "GET /erros-conhecidos/ HTTP/1.1" 200 2983
+[21/Jul/2026 16:22:06] "GET /erros-conhecidos/?busca=SOAP HTTP/1.1" 200 2987
+[21/Jul/2026 16:22:08] "GET /comercial/ HTTP/1.1" 200 5675
+[21/Jul/2026 16:22:11] "GET /tarefas/ HTTP/1.1" 200 14301
+[21/Jul/2026 16:22:51] "GET / HTTP/1.1" 200 7724
+[21/Jul/2026 16:26:10] "GET /tarefas/ HTTP/1.1" 200 14301

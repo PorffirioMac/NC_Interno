@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tickets Encerrados - Meu Sistema</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .topo h2 { font-size: 22px; }
+        .topo a { color: white; text-decoration: none; }
+        .nav { background: white; padding: 12px 32px; display: flex; gap: 24px; border-bottom: 1px solid #e0e0e0; }
+        .nav a { color: #555; text-decoration: none; font-size: 15px; padding: 8px 16px; border-radius: 6px; }
+        .nav a:hover, .nav a.active { background: #e8f0fe; color: #1a73e8; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .topo-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .topo-actions h2 { font-size: 20px; color: #333; }
+        .btn { background: #1a73e8; color: white; padding: 10px 20px; border: none; border-radius: 8px; text-decoration: none; font-size: 14px; cursor: pointer; display: inline-block; }
+        .btn:hover { background: #1557b0; }
+        .btn-outline { background: transparent; color: #1a73e8; border: 1px solid #1a73e8; }
+        .btn-outline:hover { background: #e8f0fe; }
+        .secao { margin-bottom: 32px; }
+        .secao h3 { font-size: 18px; color: #333; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #1a73e8; }
+        .secao h3 .count { font-size: 14px; color: #888; font-weight: normal; }
+        .card { background: white; padding: 16px 20px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; }
+        .card .info { flex: 1; }
+        .card .info h4 { font-size: 15px; color: #333; }
+        .card .info p { font-size: 13px; color: #888; margin-top: 4px; }
+        .card .acoes { display: flex; gap: 8px; }
+        .vazia { text-align: center; padding: 60px; color: #999; }
+        .vazia .icon { font-size: 48px; margin-bottom: 16px; }
+        .mensagens { list-style: none; margin-bottom: 16px; }
+        .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
+        .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo">
+        <h2>📁 Tickets Encerrados</h2>
+        <div>
+            {% if is_admin %}<span class="badge-admin">Admin</span>{% endif %}
+            <a href="{% url 'logout' %}" style="color: white; text-decoration: none; margin-left: 16px;">Sair</a>
+        </div>
+    </div>
+
+    {% include 'app/base_nav_snippet.html' %}
+
+    <div class="container">
+        {% if messages %}
+        <ul class="mensagens">
+            {% for msg in messages %}
+            <li>{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="topo-actions">
+            <h2>Tickets Encerrados</h2>
+            <a href="{% url 'tarefas' %}" class="btn btn-outline">← Voltar para Tickets</a>
+        </div>
+
+        {% if tarefas %}
+            {% for fase_key, fase_nome in fases.items %}
+                <div class="secao">
+                    <h3>{{ fase_nome }}</h3>
+                    {% for tarefa in tarefas %}
+                        {% if tarefa.fase == fase_key %}
+                        <div class="card">
+                            <div class="info">
+                                <h4>{{ tarefa.titulo }}</h4>
+                                <p>
+                                    👤 {{ tarefa.responsavel|default:"—" }} &nbsp;|&nbsp;
+                                    🔵 {{ tarefa.get_status_display }} &nbsp;|&nbsp;
+                                    📅 {{ tarefa.atualizado_em|date:"d/m/Y" }}
+                                </p>
+                            </div>
+                            <div class="acoes">
+                                <a href="{% url 'detalhes_tarefa' tarefa.id %}" class="btn btn-outline" style="padding: 6px 14px; font-size: 13px;">Ver</a>
+                                <a href="{% url 'reabrir_tarefa' tarefa.id %}" class="btn" style="padding: 6px 14px; font-size: 13px; background: #ffc107; color: #333;" onclick="return confirm('Reabrir este ticket?')">Reabrir</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="vazia">
+                <div class="icon">📭</div>
+                <h3>Nenhum ticket encerrado</h3>
+                <p style="color: #999; margin-top: 8px;">Os tickets concluídos aparecerão aqui.</p>
+                <a href="{% url 'tarefas' %}" class="btn" style="margin-top: 20px;">Ir para Tickets</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

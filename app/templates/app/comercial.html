@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comercial - Meu Sistema</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f2f5; }
+        .topo { background:linear-gradient(135deg,#1a73e8,#1557b0); color:white; padding:16px 32px; }
+        .container { max-width:1600px; margin:20px auto; padding:0 16px; }
+        .actions { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+        .switch { display:flex; gap:8px; }.btn { background:#1a73e8; color:white; padding:10px 18px; border-radius:8px; text-decoration:none; border:1px solid #1a73e8; cursor:pointer; }
+        .btn-outline { background:white; color:#1a73e8; }.btn-outline.active { background:#1a73e8; color:white; }
+        .kanban { display:grid; grid-template-columns:repeat(6,minmax(250px,1fr)); gap:14px; overflow-x:auto; padding-bottom:10px; }
+        .coluna { background:#e8ecf1; border-radius:12px; padding:14px; min-height:420px; }.coluna.drag-over { outline:3px dashed #1a73e8; outline-offset:-5px; background:#dce9fa; }
+        .coluna h3 { font-size:13px; color:#555; text-transform:uppercase; letter-spacing:.6px; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid #ccc; }
+        .card { background:white; padding:15px; border-radius:10px; margin-bottom:12px; box-shadow:0 1px 4px #0002; cursor:grab; }.card.arrastando { opacity:.45; }
+        .card h4 { margin-bottom:7px; }.card p { color:#666; font-size:13px; margin-bottom:8px; }.meta { display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#777; margin-top:8px; }
+        .card-footer { margin-top:12px; }.card-footer a { color:#1a73e8; text-decoration:none; font-size:13px; }
+        .table-wrap { overflow-x:auto; background:white; border-radius:12px; box-shadow:0 1px 4px #0002; }
+        table { width:100%; border-collapse:collapse; min-width:900px; } th,td { padding:14px 16px; text-align:left; border-bottom:1px solid #e8eaef; } th { background:#f6f8fb; }
+        .vazio { text-align:center; color:#777; padding:30px; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2"><script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo"><h2>💼 Comercial</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <div class="actions"><h2>Atividades Comerciais</h2><div style="display:flex;gap:12px;align-items:center;">
+            <div class="switch"><a class="btn btn-outline {% if view_mode == 'kanban' %}active{% endif %}" href="?view=kanban{% if fase_filtro %}&amp;fase={{ fase_filtro }}{% endif %}">Kanban</a><a class="btn btn-outline {% if view_mode == 'lista' %}active{% endif %}" href="?view=lista{% if fase_filtro %}&amp;fase={{ fase_filtro }}{% endif %}">Lista</a></div>
+            <a class="btn" href="{% url 'criar_tarefa' %}?area=comercial">+ Nova Tarefa Comercial</a>
+        </div></div>
+        {% if view_mode == 'kanban' %}
+        <form id="csrf-form" style="display:none;">{% csrf_token %}</form>
+        <div class="kanban">
+            {% for fase_key, fase_nome in fases.items %}<section class="coluna" data-fase="{{ fase_key }}"><h3>{{ fase_nome }}</h3>
+                {% for tarefa in tarefas %}{% if tarefa.fase == fase_key %}<article class="card" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}">
+                    <h4>{{ tarefa.titulo }}</h4><p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:'— Sem cliente —' }}</p><p>{{ tarefa.descricao|truncatewords:15 }}</p>
+                    <div class="meta"><span>👤 {{ tarefa.responsavel.username|default:'—' }}</span><span>📅 {{ tarefa.prazo|date:'d/m/Y'|default:'—' }}</span></div>
+                    <div class="meta"><span>💬 {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:'d/m/Y H:i' }}{% else %}Nenhum comentário{% endif %}</span></div>
+                    <div class="card-footer"><a href="{% url 'detalhes_tarefa' tarefa.id %}">Ver detalhes</a></div>
+                </article>{% endif %}{% endfor %}
+            </section>{% endfor %}
+        </div>
+        {% else %}
+        {% if tarefas %}<div class="table-wrap"><table><thead><tr><th>Título</th><th>Etapa</th><th>Cliente</th><th>Responsável</th><th>Prazo</th><th>Atualizado</th><th>Ações</th></tr></thead><tbody>
+            {% for tarefa in tarefas %}<tr><td>{{ tarefa.titulo }}</td><td>{{ tarefa.get_fase_display }}</td><td>{{ tarefa.cliente.nome_fantasia|default:'—' }}</td><td>{{ tarefa.responsavel.username|default:'—' }}</td><td>{{ tarefa.prazo|date:'d/m/Y'|default:'—' }}</td><td>{{ tarefa.atualizado_em|date:'d/m/Y H:i' }}</td><td><a href="{% url 'detalhes_tarefa' tarefa.id %}">Ver</a></td></tr>{% endfor %}
+        </tbody></table></div>{% else %}<div class="vazio">Nenhuma atividade comercial encontrada.</div>{% endif %}
+        {% endif %}
+    </main>
+    <script>
+    document.addEventListener('DOMContentLoaded',function(){
+        const token=document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]')?.value||'';let arrastado=null;
+        document.querySelectorAll('.card[draggable="true"]').forEach(card=>{card.addEventListener('dragstart',e=>{arrastado=card;card.classList.add('arrastando');e.dataTransfer.effectAllowed='move';});card.addEventListener('dragend',()=>{card.classList.remove('arrastando');document.querySelectorAll('.coluna').forEach(c=>c.classList.remove('drag-over'));arrastado=null;});});
+        document.querySelectorAll('.coluna[data-fase]').forEach(coluna=>{coluna.addEventListener('dragover',e=>{e.preventDefault();coluna.classList.add('drag-over');});coluna.addEventListener('dragleave',e=>{if(!coluna.contains(e.relatedTarget))coluna.classList.remove('drag-over');});coluna.addEventListener('drop',async e=>{e.preventDefault();coluna.classList.remove('drag-over');if(!arrastado||arrastado.closest('.coluna')===coluna)return;const card=arrastado;try{const resposta=await fetch(card.dataset.moverUrl,{method:'POST',headers:{'X-CSRFToken':token,'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:new URLSearchParams({fase:coluna.dataset.fase}).toString()});if(!resposta.ok)throw new Error('Não foi possível mover a atividade.');coluna.appendChild(card);}catch(erro){alert(erro.message);}});});
+    });
+    </script>
+</body>
+</html>

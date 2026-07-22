@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %} - Meu Sistema</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .topo h2 { font-size: 22px; }
+        .container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card h1 { font-size: 22px; color: #333; margin-bottom: 24px; }
+        form { display: flex; flex-direction: column; gap: 16px; }
+        label { font-weight: 600; color: #555; font-size: 14px; }
+        input, select, textarea { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn { background: #1a73e8; color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .btn:hover { background: #1557b0; }
+        .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo">
+        <h2>📋 {% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %}</h2>
+    </div>
+    {% include 'app/base_nav_snippet.html' %}
+    <div class="container">
+        <a href="{% if area == 'comercial' %}{% url 'comercial' %}{% else %}{% url 'tarefas' %}{% endif %}" class="voltar">← Voltar para {% if area == 'comercial' %}Comercial{% else %}Tickets{% endif %}</a>
+        <div class="card">
+            <h1>{% if area == 'comercial' %}Criar Tarefa Comercial{% else %}Criar Ticket{% endif %}</h1>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="area" value="{{ area }}">
+                <div>
+                    <label>Título</label>
+                    <input type="text" name="titulo" required>
+                </div>
+                <div>
+                    <label>Descrição</label>
+                    <textarea name="descricao"></textarea>
+                </div>
+                <div>
+                    <label>Fase</label>
+                    <select name="fase" required>
+                        {% for value, label in fases %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Status</label>
+                    <select name="status" required>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Cliente</label>
+                    <select name="cliente">
+                        <option value="">— Sem cliente vinculado —</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}">{{ cliente.nome_fantasia }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Prazo de conclusão</label>
+                    <input type="date" name="prazo">
+                </div>
+                <div>
+                    <label>Prioridade</label>
+                    <select name="prioridade">
+                        <option value="baixa">Baixa</option>
+                        <option value="media" selected>Média</option>
+                        <option value="alta">Alta</option>
+                        <option value="urgente">Urgente</option>
+                    </select>
+                </div>
+                {% if users %}
+                <div>
+                    <label>Responsável</label>
+                    <select name="responsavel">
+                        <option value="">— Sem responsável —</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <button type="submit" class="btn">{% if area == 'comercial' %}Criar Tarefa Comercial{% else %}Criar Ticket{% endif %}</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

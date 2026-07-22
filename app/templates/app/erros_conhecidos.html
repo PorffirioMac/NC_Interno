@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erros Conhecidos - Meu Sistema</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .nav { background: white; padding: 12px 32px; display: flex; gap: 18px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+        .nav a { color: #555; text-decoration: none; padding: 8px 12px; border-radius: 6px; }
+        .nav a:hover, .nav a.active { background: #e8f0fe; color: #1a73e8; }
+        .container { max-width: 1250px; margin: 30px auto; padding: 0 20px; }
+        .actions { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+        .busca { display: flex; gap: 8px; flex: 1; max-width: 650px; }
+        input { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn { border: 0; border-radius: 8px; padding: 11px 18px; background: #1a73e8; color: white; text-decoration: none; cursor: pointer; white-space: nowrap; }
+        .table-wrap { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #eee; vertical-align: top; }
+        th { background: #f7f9fc; }
+        td a { color: #1a73e8; text-decoration: none; font-weight: 600; }
+        .cliente { display: inline-block; background: #e8f0fe; color: #1a73e8; border-radius: 14px; padding: 3px 8px; margin: 2px; font-size: 12px; }
+        .vazio { background: white; padding: 40px; text-align: center; border-radius: 12px; color: #777; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2"><script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo"><h2>Lista de Erros Conhecidos</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <div class="actions">
+            <form method="get" class="busca"><input type="search" name="busca" value="{{ busca }}" placeholder="Buscar por palavra-chave, descrição, versão, ticket ou cliente"><button class="btn">Buscar</button></form>
+            <a class="btn" href="{% url 'criar_erro_conhecido' %}">+ Novo Erro Conhecido</a>
+        </div>
+        {% if erros %}
+        <div class="table-wrap"><table>
+            <thead><tr><th>Palavra-Chave</th><th>Módulo</th><th>Versão</th><th>Clientes</th><th>Ticket Netcontroll</th></tr></thead>
+            <tbody>{% for erro in erros %}<tr>
+                <td><a href="{% url 'detalhes_erro_conhecido' erro.id %}">{{ erro.palavra_chave }}</a></td>
+                <td>{{ erro.get_modulo_display }}</td><td>{{ erro.versao_observada }}</td>
+                <td>{% for cliente in erro.clientes.all %}<span class="cliente">{{ cliente.nome_fantasia }}</span>{% empty %}—{% endfor %}</td>
+                <td>{{ erro.ticket_netcontroll }}</td>
+            </tr>{% endfor %}</tbody>
+        </table></div>
+        {% else %}<div class="vazio">Nenhum erro conhecido encontrado.</div>{% endif %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<div class="cards">
+    <a href="{% url 'comercial' %}?view=lista&amp;fase=aprovado_aguardando_implantacao" class="card-link"><div class="card"><div class="icon">🚀</div><h3>Clientes aguardando implantação</h3><div class="numero">{{ comercial_counts.aguardando_implantacao }}</div></div></a>
+    <a href="{% url 'comercial' %}?view=lista&amp;fase=lead_inicial" class="card-link"><div class="card"><div class="icon">🌱</div><h3>Lead inicial</h3><div class="numero">{{ comercial_counts.lead_inicial }}</div></div></a>
+    <a href="{% url 'comercial' %}?view=lista&amp;fase=apresentacao" class="card-link"><div class="card"><div class="icon">🖥️</div><h3>Apresentações pendentes</h3><div class="numero">{{ comercial_counts.apresentacao }}</div></div></a>
+    <a href="{% url 'comercial' %}?view=lista&amp;fase=enviar_proposta" class="card-link"><div class="card"><div class="icon">📄</div><h3>Propostas pendentes</h3><div class="numero">{{ comercial_counts.propostas }}</div></div></a>
+    <a href="{% url 'comercial' %}?view=lista&amp;fase=aguardando_retorno" class="card-link"><div class="card"><div class="icon">⏳</div><h3>Aguardando retorno</h3><div class="numero">{{ comercial_counts.aguardando_retorno }}</div></div></a>
+</div>

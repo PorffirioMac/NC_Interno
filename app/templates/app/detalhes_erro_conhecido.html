@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ erro.palavra_chave }} - Erros Conhecidos</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }.voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        .cabecalho { display: flex; justify-content: space-between; gap: 15px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .tag { background: #e8f0fe; color: #1a73e8; padding: 7px 12px; border-radius: 20px; height: fit-content; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 24px; }.campo span { display: block; color: #777; font-size: 13px; margin-bottom: 5px; }
+        .descricao { margin-top: 26px; padding-top: 22px; border-top: 1px solid #eee; }.descricao h3 { margin-bottom: 12px; }
+        .clientes { display: flex; gap: 7px; flex-wrap: wrap; }.clientes a { background: #e8f0fe; color: #1a73e8; padding: 5px 10px; border-radius: 15px; text-decoration: none; }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2"><script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo"><h2>Erro Conhecido</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container"><a class="voltar" href="{% url 'erros_conhecidos' %}">← Voltar para a lista</a>
+        <article class="card"><div class="cabecalho"><h1>{{ erro.palavra_chave }}</h1><span class="tag">{{ erro.get_modulo_display }}</span></div>
+            <div class="grid">
+                <div class="campo"><span>Versão Observada</span><strong>{{ erro.versao_observada }}</strong></div>
+                <div class="campo"><span>Ticket Netcontroll</span><strong>{{ erro.ticket_netcontroll }}</strong></div>
+                <div class="campo"><span>Clientes</span><div class="clientes">{% for cliente in erro.clientes.all %}<a href="{% url 'detalhes_cliente' cliente.id %}">{{ cliente.nome_fantasia }}</a>{% endfor %}</div></div>
+            </div>
+            <div class="descricao"><h3>Descrição</h3><div>{{ erro.descricao|linebreaks }}</div></div>
+        </article>
+    </main>
+</body>
+</html>

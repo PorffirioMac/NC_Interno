@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tickets - Meu Sistema</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .topo h2 { font-size: 22px; }
+        .topo a { color: white; text-decoration: none; font-size: 14px; }
+        .nav { background: white; padding: 12px 32px; display: flex; gap: 24px; border-bottom: 1px solid #e0e0e0; }
+        .nav a { color: #555; text-decoration: none; font-size: 15px; padding: 8px 16px; border-radius: 6px; }
+        .nav a:hover, .nav a.active { background: #e8f0fe; color: #1a73e8; }
+        .container { max-width: 1400px; margin: 20px auto; padding: 0 16px; }
+        .topo-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .topo-actions h2 { font-size: 20px; color: #333; }
+        .btn { background: #1a73e8; color: white; padding: 10px 20px; border: none; border-radius: 8px; text-decoration: none; font-size: 14px; cursor: pointer; transition: 0.2s; display: inline-block; }
+        .btn:hover { background: #1557b0; }
+        .btn-outline { background: transparent; color: #1a73e8; border: 1px solid #1a73e8; }
+        .btn-outline:hover { background: #e8f0fe; }
+        .btn-outline.active { background: #1a73e8; color: white; }
+        .filtros { display: flex; gap: 8px; align-items: center; }
+        .filtros span { font-size: 13px; color: #888; }
+        .kanban-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+        .coluna { background: #e8ecf1; border-radius: 12px; padding: 16px; min-height: 400px; }
+        .coluna.drag-over { outline: 3px dashed #1a73e8; outline-offset: -5px; background: #dce9fa; }
+        .coluna h3 { font-size: 14px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #ccc; }
+        .card { background: white; padding: 16px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: 0.2s; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .card[draggable="true"] { cursor: grab; }
+        .card.arrastando { opacity: 0.45; cursor: grabbing; }
+        .card h4 { font-size: 15px; color: #333; margin-bottom: 6px; }
+        .card p { font-size: 13px; color: #777; margin-bottom: 12px; }
+        .card .meta { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #999; }
+        .card form { margin-top: 12px; }
+        .card select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+        .card .card-actions { display: grid; gap: 10px; margin-top: 12px; }
+        .card .btn-card { width: 100%; margin-top: 8px; padding: 8px 12px; font-size: 13px; }
+        .card .btn-card:hover { opacity: 0.95; }
+        .card .card-footer { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+        .card .card-footer a { text-decoration: none; color: #1a73e8; font-size: 13px; }
+        .view-switch { display: flex; gap: 8px; }
+        .lista-view { margin-top: 20px; }
+        .table-wrapper { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .lista-tarefas { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .lista-tarefas th, .lista-tarefas td { padding: 14px 16px; border-bottom: 1px solid #e8eaef; text-align: left; font-size: 14px; }
+        .lista-tarefas th { background: #f6f8fb; color: #333; font-weight: 700; }
+        .lista-tarefas tr:hover { background: #f5f9ff; }
+        .lista-tarefas td:last-child { white-space: nowrap; }
+        .prioridade-alta { border-left: 4px solid #dc3545; }
+        .prioridade-media { border-left: 4px solid #ffc107; }
+        .prioridade-baixa { border-left: 4px solid #28a745; }
+        .prioridade-urgente { border-left: 4px solid #dc3545; border-left-width: 6px; }
+        .mensagens { list-style: none; margin-bottom: 20px; }
+        .mensagens li { background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; }
+        .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo">
+        <h2>📋 Tickets</h2>
+        <div>
+            {% if is_admin %}<span class="badge-admin">Admin</span>{% endif %}
+            <a href="{% url 'logout' %}" style="color: white; text-decoration: none; margin-left: 16px;">Sair</a>
+        </div>
+    </div>
+
+    {% include 'app/base_nav_snippet.html' %}
+
+    <div class="container">
+        {% if messages %}
+        <ul class="mensagens">
+            {% for msg in messages %}
+            <li>{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="topo-actions">
+            <h2>Tickets</h2>
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="view-switch">
+                    <a href="?view=kanban{% if filtro_atual %}&filtro={{ filtro_atual }}{% endif %}{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if view_mode == 'kanban' %}active{% endif %}">Kanban</a>
+                    <a href="?view=lista{% if filtro_atual %}&filtro={{ filtro_atual }}{% endif %}{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if view_mode == 'lista' %}active{% endif %}">Lista</a>
+                </div>
+                <div class="filtros">
+                    <span>Filtrar:</span>
+                    <a href="?view={{ view_mode }}&filtro=todas{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'todas' %}active{% endif %}">Todas</a>
+                    <a href="?view={{ view_mode }}&filtro=minhas{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'minhas' %}active{% endif %}">Minhas</a>
+                    <a href="?view={{ view_mode }}&filtro=hoje{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'hoje' %}active{% endif %}">Hoje</a>
+                    <a href="?view={{ view_mode }}&filtro=atrasadas{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'atrasadas' %}active{% endif %}">Atrasadas</a>
+                    <a href="?view={{ view_mode }}&filtro=pendente_cliente{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'pendente_cliente' %}active{% endif %}">Pendente Cliente</a>
+                    <a href="?view={{ view_mode }}&filtro=pendente_netcamp{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'pendente_netcamp' %}active{% endif %}">Pendente NetCamp</a>
+                    <a href="?view={{ view_mode }}&filtro=pendente_netcontroll{% if cliente_filtro %}&cliente={{ cliente_filtro }}{% endif %}{% if responsavel_filtro %}&responsavel={{ responsavel_filtro }}{% endif %}" class="btn btn-outline {% if filtro_atual == 'pendente_netcontroll' %}active{% endif %}">Pendente Netcontroll</a>
+                </div>
+                <form method="get" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                    <input type="hidden" name="view" value="{{ view_mode }}">
+                    <input type="hidden" name="filtro" value="{{ filtro_atual }}">
+                    {% if responsavel_filtro %}<input type="hidden" name="responsavel" value="{{ responsavel_filtro }}">{% endif %}
+                    <select name="cliente" style="padding: 9px 10px; border: 1px solid #1a73e8; border-radius: 8px; background: white;">
+                        <option value="">Todos os clientes</option>
+                        <option value="sem_cliente" {% if cliente_filtro == 'sem_cliente' %}selected{% endif %}>Sem cliente vinculado</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}" {% if selected_cliente_id == cliente.id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-outline">Filtrar cliente</button>
+                </form>
+                {% if is_admin %}
+                <form method="get" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                    <input type="hidden" name="view" value="{{ view_mode }}">
+                    <input type="hidden" name="filtro" value="{{ filtro_atual }}">
+                    {% if cliente_filtro %}<input type="hidden" name="cliente" value="{{ cliente_filtro }}">{% endif %}
+                    <select name="responsavel" style="padding: 9px 10px; border: 1px solid #1a73e8; border-radius: 8px; background: white;">
+                        <option value="">Todos os usuários</option>
+                        {% for user_item in users %}
+                        <option value="{{ user_item.id }}" {% if selected_responsavel_id == user_item.id %}selected{% endif %}>{{ user_item.get_full_name|default:user_item.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-outline">Filtrar usuário</button>
+                </form>
+                {% endif %}
+                <a href="{% url 'criar_tarefa' %}" class="btn">+ Novo Ticket</a>
+                <a href="{% url 'tarefas_encerradas' %}" class="btn btn-outline encerradas-btn" style="background:#fff;color:#333;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;">
+                    <span style="display:inline-flex;align-items:center;gap:8px;">📁 Encerradas</span>
+                    <span class="encerradas-count" style="background:#f1f3f5;color:#333;padding:4px 8px;border-radius:12px;font-weight:600;">{{ encerradas_count }}</span>
+                </a>
+            </div>
+        </div>
+
+        {% if view_mode == 'kanban' %}
+        <form id="csrf-form" style="display:none;">{% csrf_token %}</form>
+        <div class="kanban-board">
+            {% for fase_key, fase_nome in fases.items %}
+            <div class="coluna" data-fase="{{ fase_key }}">
+                <h3>{{ fase_nome }}</h3>
+                {% for tarefa in tarefas %}
+                    {% if tarefa.fase == fase_key %}
+                    <div class="card prioridade-{{ tarefa.prioridade }}" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}">
+                        <h4>{{ tarefa.titulo }}</h4>
+                        <p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</p>
+                        <p>{{ tarefa.descricao|truncatewords:15 }}</p>
+                        <div class="meta">
+                            <span>🔵 {{ tarefa.get_status_display }}</span>
+                            <span>👤 {{ tarefa.responsavel.username|default:"—" }}</span>
+                        </div>
+                        <div class="meta" style="margin-top: 8px; gap: 8px;">
+                            <span>⏱️ Prazo: {{ tarefa.prazo|date:"d/m/Y"|default:"—" }}</span>
+                        </div>
+                        <div class="meta" style="margin-top: 8px; gap: 8px;">
+                            <span>💬 Última atualização: {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:"d/m/Y H:i" }}{% else %}Nenhum comentário{% endif %}</span>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'detalhes_tarefa' tarefa.id %}">Ver detalhes</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% empty %}
+                    <p style="color: #999; font-size: 13px; text-align: center; padding: 20px;">Nenhum ticket</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="lista-view">
+            {% if tarefas %}
+            <div class="table-wrapper">
+                <table class="lista-tarefas">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Fase</th>
+                            <th>Cliente</th>
+                            <th>Status</th>
+                            <th>Prioridade</th>
+                            <th>Responsável</th>
+                            <th>Prazo</th>
+                            <th>Atualizado</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tarefa in tarefas %}
+                        <tr>
+                            <td>{{ tarefa.titulo }}</td>
+                            <td>{{ tarefa.get_fase_display }}</td>
+                            <td>{{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</td>
+                            <td>{{ tarefa.get_status_display }}</td>
+                            <td>{{ tarefa.get_prioridade_display }}</td>
+                            <td>{{ tarefa.responsavel.username|default:"—" }}</td>
+                            <td>{{ tarefa.prazo|date:"d/m/Y"|default:'—' }}</td>
+                            <td>{{ tarefa.atualizado_em|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <a href="{% url 'detalhes_tarefa' tarefa.id %}" class="btn btn-outline" style="padding: 6px 10px; font-size: 13px;">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: #777; font-size: 14px; text-align: center; padding: 24px;">Nenhum ticket encontrado.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const csrfInput = document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]');
+            const csrfToken = csrfInput ? csrfInput.value : '';
+            let cardArrastado = null;
+
+            document.querySelectorAll('.card[draggable="true"]').forEach(function (card) {
+                card.addEventListener('dragstart', function (event) {
+                    cardArrastado = card;
+                    card.classList.add('arrastando');
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', card.dataset.moverUrl);
+                });
+
+                card.addEventListener('dragend', function () {
+                    card.classList.remove('arrastando');
+                    document.querySelectorAll('.coluna').forEach(function (coluna) {
+                        coluna.classList.remove('drag-over');
+                    });
+                    cardArrastado = null;
+                });
+            });
+
+            document.querySelectorAll('.coluna[data-fase]').forEach(function (coluna) {
+                coluna.addEventListener('dragover', function (event) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    coluna.classList.add('drag-over');
+                });
+
+                coluna.addEventListener('dragleave', function (event) {
+                    if (!coluna.contains(event.relatedTarget)) coluna.classList.remove('drag-over');
+                });
+
+                coluna.addEventListener('drop', async function (event) {
+                    event.preventDefault();
+                    coluna.classList.remove('drag-over');
+                    if (!cardArrastado || cardArrastado.closest('.coluna') === coluna) return;
+
+                    const cardMovido = cardArrastado;
+                    const dados = new URLSearchParams({ fase: coluna.dataset.fase });
+                    try {
+                        const resposta = await fetch(cardMovido.dataset.moverUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': csrfToken,
+                                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                            },
+                            body: dados.toString()
+                        });
+                        if (!resposta.ok) throw new Error('Não foi possível mover o ticket.');
+                        coluna.appendChild(cardMovido);
+                    } catch (erro) {
+                        alert(erro.message);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

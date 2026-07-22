@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Meu Sistema</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .nav { background: white; padding: 12px 32px; display: flex; gap: 24px; border-bottom: 1px solid #e0e0e0; }
+        .nav a { color: #555; text-decoration: none; padding: 8px 16px; border-radius: 6px; }
+        .nav a:hover, .nav a.active { background: #e8f0fe; color: #1a73e8; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .actions { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+        .busca { display: flex; gap: 8px; flex: 1; max-width: 600px; }
+        input { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn { border: 0; border-radius: 8px; padding: 11px 18px; background: #1a73e8; color: white; text-decoration: none; cursor: pointer; white-space: nowrap; }
+        .btn-secondary { background: #6c757d; }
+        .table-wrap { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        table { width: 100%; border-collapse: collapse; min-width: 750px; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f7f9fc; }
+        td a { color: #1a73e8; text-decoration: none; font-weight: 600; }
+        .vazio { background: white; padding: 40px; text-align: center; border-radius: 12px; color: #777; }
+        .mensagens { list-style: none; margin-bottom: 16px; }
+        .mensagens li { background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 8px; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo"><h2>Clientes</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
+        <div class="actions">
+            <form method="get" class="busca">
+                <input type="search" name="busca" value="{{ busca }}" placeholder="Buscar por nome, razão social, CNPJ ou proprietário">
+                <button class="btn" type="submit">Buscar</button>
+            </form>
+            <div style="display:flex; gap:8px;">
+                <a class="btn btn-secondary" href="{% url 'clientes_inativos' %}">Clientes Inativos</a>
+                <a class="btn" href="{% url 'criar_cliente' %}">+ Novo Cliente</a>
+            </div>
+        </div>
+        {% if clientes %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>ID interno</th><th>Nome Fantasia</th><th>Razão Social</th><th>CNPJ</th><th>Telefone</th></tr></thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td>{{ cliente.codigo|default:'—' }}</td>
+                        <td>#{{ cliente.id }}</td>
+                        <td><a href="{% url 'detalhes_cliente' cliente.id %}">{{ cliente.nome_fantasia }}</a></td>
+                        <td>{{ cliente.razao_social }}</td><td>{{ cliente.cnpj }}</td><td>{{ cliente.telefone }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<div class="vazio">Nenhum cliente encontrado.</div>{% endif %}
+    </main>
+</body>
+</html>

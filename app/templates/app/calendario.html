@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendário - Meu Sistema</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .topo h2 { font-size: 22px; }
+        .topo a { color: white; text-decoration: none; font-size: 14px; }
+        .nav { background: white; padding: 12px 32px; display: flex; gap: 24px; border-bottom: 1px solid #e0e0e0; }
+        .nav a { color: #555; text-decoration: none; font-size: 15px; padding: 8px 16px; border-radius: 6px; }
+        .nav a:hover, .nav a.active { background: #e8f0fe; color: #1a73e8; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .section-title h2 { font-size: 20px; color: #333; }
+        .section-title span { color: #666; font-size: 14px; }
+        .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 16px; margin-bottom: 40px; }
+        .day-card { background: white; border-radius: 16px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); min-height: 220px; display: flex; flex-direction: column; }
+        .day-card.today { border: 2px solid #1a73e8; }
+        .day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .weekday { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.08em; }
+        .date { font-size: 18px; font-weight: 700; color: #1a73e8; }
+        .tasks-list { flex: 1; overflow: hidden; }
+        .tasks-list ul { list-style: none; padding-left: 0; margin-top: 8px; max-height: 130px; overflow-y: auto; }
+        .tasks-list li { margin-bottom: 10px; padding: 10px 12px; border-radius: 12px; background: #f6f8fb; font-size: 13px; line-height: 1.3; }
+        .tasks-list li a { color: #1a73e8; text-decoration: none; }
+        .tasks-list li a:hover { text-decoration: underline; }
+        .month-calendar { background: white; border-radius: 18px; padding: 20px; box-shadow: 0 2px 14px rgba(0,0,0,0.06); }
+        .month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+        .weekday-label { font-size: 11px; text-transform: uppercase; color: #666; padding: 10px 10px 6px; text-align: center; }
+        .month-cell { min-height: 118px; border-radius: 16px; padding: 12px; background: #f9fbfe; display: flex; flex-direction: column; }
+        .month-cell.outside { opacity: 0.5; }
+        .month-cell.today { border: 2px solid #1a73e8; background: #eef5ff; }
+        .cell-date { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+        .cell-tasks { margin-top: auto; }
+        .cell-tasks ul { list-style: none; margin: 0; padding: 0; max-height: 70px; overflow: hidden; }
+        .cell-tasks li { font-size: 12px; margin-bottom: 6px; }
+        .cell-tasks li a { color: #1a73e8; text-decoration: none; }
+        .chart-tag { display: inline-flex; align-items: center; gap: 6px; background: #e8f0fe; color: #1a73e8; border-radius: 999px; padding: 4px 8px; font-size: 12px; }
+        .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; font-size: 13px; color: #555; }
+        .legend span { display: inline-flex; align-items: center; gap: 8px; }
+        .legend .dot { width: 12px; height: 12px; border-radius: 50%; background: #1a73e8; }
+        .empty-state { text-align: center; color: #777; padding: 36px 0; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260721-2">
+    <script src="/static/app/theme.js"></script>
+</head>
+<body>
+    <div class="topo">
+        <h2>📅 Calendário</h2>
+        <div>
+            <span>{{ user.get_full_name|default:user.username }}</span>
+            <a href="{% url 'logout' %}">Sair</a>
+        </div>
+    </div>
+    {% include 'app/base_nav_snippet.html' %}
+    <div class="container">
+        <div class="section-title">
+            <h2>Semana Atual</h2>
+            <span>{{ week_start|date:"d/m/Y" }} – {{ week_end|date:"d/m/Y" }}</span>
+        </div>
+        <div class="week-grid">
+            {% for day in week_days %}
+            <div class="day-card {% if day.is_today %}today{% endif %}">
+                <div class="day-header">
+                    <span class="weekday">{{ day.label }}</span>
+                    <span class="date">{{ day.date|date:"d" }}</span>
+                </div>
+                <div class="tasks-list">
+                    {% if day.tasks %}
+                    <ul>
+                        {% for tarefa in day.tasks %}
+                        <li><a href="{% url 'detalhes_tarefa' tarefa.id %}">{{ tarefa.titulo|truncatechars:40 }}</a></li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p style="color: #777; font-size: 13px;">Sem tickets com vencimento.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="section-title" style="margin-top: 40px;">
+            <h2>Mês Atual</h2>
+            <span>{{ month_name }} {{ current_year }}</span>
+        </div>
+        <div class="month-calendar">
+            <div class="month-grid">
+                <div class="weekday-label">Seg</div>
+                <div class="weekday-label">Ter</div>
+                <div class="weekday-label">Qua</div>
+                <div class="weekday-label">Qui</div>
+                <div class="weekday-label">Sex</div>
+                <div class="weekday-label">Sáb</div>
+                <div class="weekday-label">Dom</div>
+                {% for week in month_weeks %}
+                    {% for day in week %}
+                    <div class="month-cell {% if not day.is_current_month %}outside{% endif %} {% if day.is_today %}today{% endif %}">
+                        <div class="cell-date">{{ day.date|date:"d" }}</div>
+                        {% if day.tasks %}
+                        <div class="cell-tasks">
+                            <span class="chart-tag"><i class="fas fa-calendar-day"></i> {{ day.tasks|length }} tickets</span>
+                            <ul>
+                                {% for tarefa in day.tasks|slice:3 %}
+                                <li><a href="{% url 'detalhes_tarefa' tarefa.id %}">{{ tarefa.titulo|truncatechars:22 }}</a></li>
+                                {% endfor %}
+                                {% if day.tasks|length > 3 %}
+                                <li style="color: #555;">+{{ day.tasks|length|add:'-3' }} mais</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            <div class="legend">
+                <span><span class="dot"></span> Hoje</span>
+                <span><i class="fas fa-calendar-day" style="color: #1a73e8;"></i> Tickets por dia</span>
+            </div>
+        </div>
+        {% if not month_tasks %}
+        <div class="empty-state">
+            <p>Não há tickets com vencimento neste mês.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
