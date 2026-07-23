@@ -21,7 +21,7 @@
         table { width:100%; border-collapse:collapse; min-width:900px; } th,td { padding:14px 16px; text-align:left; border-bottom:1px solid #e8eaef; } th { background:#f6f8fb; }
         .vazio { text-align:center; color:#777; padding:30px; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260723-3"><script src="/static/app/theme.js?v=20260723-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2"><script src="/static/app/theme.js?v=20260724-2"></script>
 </head>
 <body>
     <div class="topo"><h2>💼 Comercial</h2></div>
@@ -35,7 +35,7 @@
         <form id="csrf-form" style="display:none;">{% csrf_token %}</form>
         <div class="kanban">
             {% for fase_key, fase_nome in fases.items %}<section class="coluna" data-fase="{{ fase_key }}"><h3>{{ fase_nome }}</h3>
-                {% for tarefa in tarefas %}{% if tarefa.fase == fase_key %}<article class="card" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}">
+                {% for tarefa in tarefas %}{% if tarefa.fase == fase_key %}<article class="card" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}" data-detalhes-url="{% url 'detalhes_tarefa' tarefa.id %}" role="link" tabindex="0" aria-label="Abrir ticket {{ tarefa.titulo }}">
                     <h4>{{ tarefa.titulo }}</h4><p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:'— Sem cliente —' }}</p><p>{{ tarefa.descricao|truncatewords:15 }}</p>
                     <div class="meta"><span>👤 {{ tarefa.responsavel.username|default:'—' }}</span><span>📅 {{ tarefa.prazo|date:'d/m/Y'|default:'—' }}</span></div>
                     <div class="meta"><span>💬 {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:'d/m/Y H:i' }}{% else %}Nenhum comentário{% endif %}</span></div>
@@ -52,7 +52,7 @@
     <script>
     document.addEventListener('DOMContentLoaded',function(){
         const token=document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]')?.value||'';let arrastado=null;
-        document.querySelectorAll('.card[draggable="true"]').forEach(card=>{card.addEventListener('dragstart',e=>{arrastado=card;card.classList.add('arrastando');e.dataTransfer.effectAllowed='move';});card.addEventListener('dragend',()=>{card.classList.remove('arrastando');document.querySelectorAll('.coluna').forEach(c=>c.classList.remove('drag-over'));arrastado=null;});});
+        document.querySelectorAll('.card[draggable="true"]').forEach(card=>{let acabouDeArrastar=false;card.addEventListener('dragstart',e=>{acabouDeArrastar=true;arrastado=card;card.classList.add('arrastando');e.dataTransfer.effectAllowed='move';});card.addEventListener('dragend',()=>{card.classList.remove('arrastando');document.querySelectorAll('.coluna').forEach(c=>c.classList.remove('drag-over'));arrastado=null;window.setTimeout(()=>{acabouDeArrastar=false;},100);});card.addEventListener('click',e=>{if(acabouDeArrastar||e.target.closest('a,button,input,select,textarea,form'))return;window.location.href=card.dataset.detalhesUrl;});card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window.location.href=card.dataset.detalhesUrl;}});});
         document.querySelectorAll('.coluna[data-fase]').forEach(coluna=>{coluna.addEventListener('dragover',e=>{e.preventDefault();coluna.classList.add('drag-over');});coluna.addEventListener('dragleave',e=>{if(!coluna.contains(e.relatedTarget))coluna.classList.remove('drag-over');});coluna.addEventListener('drop',async e=>{e.preventDefault();coluna.classList.remove('drag-over');if(!arrastado||arrastado.closest('.coluna')===coluna)return;const card=arrastado;try{const resposta=await fetch(card.dataset.moverUrl,{method:'POST',headers:{'X-CSRFToken':token,'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:new URLSearchParams({fase:coluna.dataset.fase}).toString()});if(!resposta.ok)throw new Error('Não foi possível mover a atividade.');coluna.appendChild(card);}catch(erro){alert(erro.message);}});});
     });
     </script>

@@ -58,8 +58,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; }
         .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260723-3">
-    <script src="/static/app/theme.js?v=20260723-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2">
+    <script src="/static/app/theme.js?v=20260724-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -141,7 +141,10 @@
                 <h3>{{ fase_nome }}</h3>
                 {% for tarefa in tarefas %}
                     {% if tarefa.fase == fase_key %}
-                    <div class="card prioridade-{{ tarefa.prioridade }}" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}">
+                    <div class="card prioridade-{{ tarefa.prioridade }}" draggable="true"
+                         data-mover-url="{% url 'mover_tarefa' tarefa.id %}"
+                         data-detalhes-url="{% url 'detalhes_tarefa' tarefa.id %}"
+                         role="link" tabindex="0" aria-label="Abrir ticket {{ tarefa.titulo }}">
                         <h4>{{ tarefa.titulo }}</h4>
                         <p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</p>
                         <p>{{ tarefa.descricao|truncatewords:15 }}</p>
@@ -216,7 +219,9 @@
             let cardArrastado = null;
 
             document.querySelectorAll('.card[draggable="true"]').forEach(function (card) {
+                let acabouDeArrastar = false;
                 card.addEventListener('dragstart', function (event) {
+                    acabouDeArrastar = true;
                     cardArrastado = card;
                     card.classList.add('arrastando');
                     event.dataTransfer.effectAllowed = 'move';
@@ -229,6 +234,21 @@
                         coluna.classList.remove('drag-over');
                     });
                     cardArrastado = null;
+                    window.setTimeout(function () {
+                        acabouDeArrastar = false;
+                    }, 100);
+                });
+
+                card.addEventListener('click', function (event) {
+                    if (acabouDeArrastar || event.target.closest('a, button, input, select, textarea, form')) return;
+                    window.location.href = card.dataset.detalhesUrl;
+                });
+
+                card.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        window.location.href = card.dataset.detalhesUrl;
+                    }
                 });
             });
 

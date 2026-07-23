@@ -38,8 +38,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260723-3">
-    <script src="/static/app/theme.js?v=20260723-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-4">
+    <script src="/static/app/theme.js?v=20260724-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -73,6 +73,61 @@
                 <span class="tag">🏢 {{ tarefa.cliente.nome_fantasia }}</span>
                 {% endif %}
             </div>
+            {% if pode_editar %}
+            <details class="secao ticket-edit-panel">
+                <summary>✏️ Editar dados do ticket</summary>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="editar_ticket" value="1">
+                    <label>Título
+                        <input type="text" name="titulo" value="{{ tarefa.titulo }}" maxlength="300" required>
+                    </label>
+                    <label>Descrição
+                        <textarea name="descricao">{{ tarefa.descricao }}</textarea>
+                    </label>
+                    <div class="grid-2">
+                        <label>Coluna
+                            <select name="fase" required>
+                                {% for valor, nome in fases %}
+                                <option value="{{ valor }}" {% if tarefa.fase == valor %}selected{% endif %}>{{ nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Status
+                            <select name="status" required>
+                                {% for valor, nome in status_choices %}
+                                <option value="{{ valor }}" {% if tarefa.status == valor %}selected{% endif %}>{{ nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Cliente
+                            <select name="cliente">
+                                <option value="">— Sem cliente vinculado —</option>
+                                {% for cliente in clientes %}
+                                <option value="{{ cliente.id }}" {% if tarefa.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>Prazo de conclusão
+                            <input type="date" name="prazo" value="{{ tarefa.prazo|date:'Y-m-d' }}">
+                        </label>
+                        <label>Prioridade
+                            <select name="prioridade" required>
+                                {% for valor, nome in prioridades %}
+                                <option value="{{ valor }}" {% if tarefa.prioridade == valor %}selected{% endif %}>{{ nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn">Salvar alterações</button>
+                </form>
+            </details>
+            {% elif tarefa.responsavel %}
+            <p class="edit-permission-note">Somente {{ tarefa.responsavel.username }}, responsável atual, pode editar os dados deste ticket.</p>
+            {% else %}
+            <p class="edit-permission-note">Atribua um responsável para habilitar a edição dos dados deste ticket.</p>
+            {% endif %}
+            {% if legacy_field_controls %}
             <div class="secao">
                 <h3>🏢 Cliente vinculado</h3>
                 <form method="post">
@@ -87,6 +142,7 @@
                     <button type="submit" class="btn btn-small">Salvar Cliente</button>
                 </form>
             </div>
+            {% endif %}
             {% if is_admin %}
             <div class="secao">
                 <h3>👤 Atribuir Responsável</h3>
@@ -104,6 +160,7 @@
             {% endif %}
             <p>{{ tarefa.descricao|linebreaks }}</p>
 
+            {% if legacy_field_controls %}
             <div class="secao">
                 <h3>Atualizar Status</h3>
                 <form method="post">
@@ -119,6 +176,7 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
 
             <!-- BOTÃO DE ENCERRAR / REABRIR -->
             <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #eee; display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -142,6 +200,38 @@
                     🔄 Reabrir Ticket
                 </a>
                 {% endif %}
+            </div>
+        </div>
+
+        <div class="card-detalhe ticket-attachments">
+            <div class="attachment-heading">
+                <div>
+                    <h3>📎 Anexos</h3>
+                    <p>Documentos, imagens, planilhas e arquivos compactados.</p>
+                </div>
+                {% if pode_anexar %}
+                <form method="post" enctype="multipart/form-data" class="attachment-upload">
+                    {% csrf_token %}
+                    <input type="hidden" name="enviar_anexo" value="1">
+                    <input type="file" name="arquivo" required
+                           accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+                    <button type="submit" class="btn btn-small">Enviar anexo</button>
+                    <small>Limite de 20 MB. Arquivos executáveis não são aceitos.</small>
+                </form>
+                {% endif %}
+            </div>
+            <div class="attachment-list">
+                {% for anexo in tarefa.anexos.all %}
+                <div class="attachment-item">
+                    <span class="attachment-icon">📄</span>
+                    <div>
+                        <a class="attachment-download" href="{% url 'baixar_anexo_ticket' anexo.id %}">{{ anexo.nome_original }}</a>
+                        <small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="attachment-empty">Nenhum arquivo anexado a este ticket.</p>
+                {% endfor %}
             </div>
         </div>
 

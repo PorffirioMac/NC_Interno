@@ -1,6 +1,7 @@
 from datetime import date, timedelta
+from pathlib import Path
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
@@ -13,7 +14,7 @@ from .forms import ClienteForm, ErroConhecidoForm, ReleaseForm, SolicitacaoRelea
 from .models import (
     Cliente, ComentarioSolicitacao, ErroConhecido, Release,
     SolicitacaoRelease, Task, ChecklistItem, Comment, Notificacao,
-    Comunicacao, ComunicacaoDestinatario,
+    AnexoTicket, Comunicacao, ComunicacaoDestinatario,
 )
 
 
@@ -712,12 +713,90 @@ def criar_tarefa(request):
 @login_required(login_url='/login/')
 def detalhes_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
+    pode_editar = tarefa.responsavel_id == request.user.id
+    fases_disponiveis = (
+        Task.FASES_COMERCIAL if tarefa.area == 'comercial' else Task.FASES_TICKETS
+    )
+    prioridades = [
+        ('baixa', 'Baixa'),
+        ('media', 'Média'),
+        ('alta', 'Alta'),
+        ('urgente', 'Urgente'),
+    ]
     if request.method == 'POST':
-        if 'atualizar_cliente' in request.POST:
+        if 'enviar_anexo' in request.POST:
+            if not (pode_editar or request.user.is_superuser):
+                messages.error(request, 'Somente o responsável atual ou um administrador pode anexar arquivos.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
+            arquivo = request.FILES.get('arquivo')
+            extensoes_permitidas = {
+                '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp',
+                '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                '.txt', '.csv', '.zip', '.rar', '.7z',
+            }
+            if not arquivo:
+                messages.error(request, 'Selecione um arquivo para anexar.')
+            elif arquivo.size > 20 * 1024 * 1024:
+                messages.error(request, 'O arquivo deve ter no máximo 20 MB.')
+            elif Path(arquivo.name).suffix.lower() not in extensoes_permitidas:
+                messages.error(request, 'Este tipo de arquivo não é permitido.')
+            else:
+                AnexoTicket.objects.create(
+                    tarefa=tarefa,
+                    arquivo=arquivo,
+                    nome_original=Path(arquivo.name).name[:255],
+                    tamanho=arquivo.size,
+                    enviado_por=request.user,
+                )
+                messages.success(request, 'Anexo enviado com sucesso!')
+        elif 'editar_ticket' in request.POST:
+            if not pode_editar:
+                messages.error(
+                    request,
+                    'Somente o responsável atual pode editar os dados deste ticket.',
+                )
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
+            titulo = request.POST.get('titulo', '').strip()
+            fase = request.POST.get('fase', '')
+            status = request.POST.get('status', '')
+            prioridade = request.POST.get('prioridade', '')
+            prazo_texto = request.POST.get('prazo', '').strip()
+            if not titulo:
+                messages.error(request, 'Informe o título do ticket.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+            if fase not in dict(fases_disponiveis):
+                messages.error(request, 'Selecione uma coluna válida.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+            if status not in dict(Task.STATUS_CHOICES):
+                messages.error(request, 'Selecione um status válido.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+            if prioridade not in dict(prioridades):
+                messages.error(request, 'Selecione uma prioridade válida.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
+            prazo = None
+            if prazo_texto:
+                try:
+                    prazo = date.fromisoformat(prazo_texto)
+                except ValueError:
+                    messages.error(request, 'Informe um prazo válido.')
+                    return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
             cliente_id = request.POST.get('cliente')
-            tarefa.cliente = get_object_or_404(Cliente, id=cliente_id, ativo=True) if cliente_id else None
+            tarefa.cliente = (
+                get_object_or_404(Cliente, id=cliente_id, ativo=True)
+                if cliente_id else None
+            )
+            tarefa.titulo = titulo
+            tarefa.descricao = request.POST.get('descricao', '').strip()
+            tarefa.fase = fase
+            tarefa.status = status
+            tarefa.prioridade = prioridade
+            tarefa.prazo = prazo
             tarefa.save()
-            messages.success(request, 'Cliente vinculado ao ticket!')
+            messages.success(request, 'Dados do ticket atualizados com sucesso!')
         elif 'responsavel' in request.POST and request.user.is_superuser:
             responsavel_anterior_id = tarefa.responsavel_id
             responsavel_id = request.POST.get('responsavel')
@@ -747,7 +826,7 @@ def detalhes_tarefa(request, tarefa_id):
             item = get_object_or_404(ChecklistItem, id=request.POST['item_id'])
             item.concluido = not item.concluido
             item.save()
-        elif 'atualizar_status' in request.POST:
+        elif 'atualizar_status' in request.POST and pode_editar:
             novo_status = request.POST.get('novo_status')
             if novo_status in dict(Task.STATUS_CHOICES):
                 tarefa.status = novo_status
@@ -762,8 +841,24 @@ def detalhes_tarefa(request, tarefa_id):
         'is_admin': request.user.is_superuser,
         'users': users,
         'status_choices': Task.STATUS_CHOICES,
-        'clientes': Cliente.objects.filter(ativo=True),
+        'fases': fases_disponiveis,
+        'prioridades': prioridades,
+        'pode_editar': pode_editar,
+        'pode_anexar': pode_editar or request.user.is_superuser,
+        'clientes': Cliente.objects.filter(
+            Q(ativo=True) | Q(id=tarefa.cliente_id)
+        ).distinct(),
     })
+
+
+@login_required(login_url='/login/')
+def baixar_anexo_ticket(request, anexo_id):
+    anexo = get_object_or_404(AnexoTicket, id=anexo_id)
+    return FileResponse(
+        anexo.arquivo.open('rb'),
+        as_attachment=True,
+        filename=anexo.nome_original,
+    )
 
 @login_required(login_url='/login/')
 def calendario(request):

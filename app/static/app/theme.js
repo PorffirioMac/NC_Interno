@@ -26,9 +26,13 @@
     aplicarTema(temaInicial());
 
     document.addEventListener('DOMContentLoaded', function () {
-        const botao = document.createElement('button');
-        botao.type = 'button';
-        botao.className = 'theme-toggle';
+        let botao = document.querySelector('.theme-toggle');
+        if (!botao) {
+            botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'theme-toggle theme-toggle-floating';
+            document.body.appendChild(botao);
+        }
         botao.addEventListener('click', function () {
             const tema = root.dataset.theme === 'dark' ? 'light' : 'dark';
             aplicarTema(tema);
@@ -38,7 +42,6 @@
                 // Ignora somente a persistência quando ela não estiver disponível.
             }
         });
-        document.body.appendChild(botao);
         aplicarTema(root.dataset.theme || temaInicial());
 
         const painel = document.getElementById('notificationPanel');
@@ -46,14 +49,17 @@
 
         const chavePainel = 'ncinterno-avisos-minimizado';
         const chavePosicao = 'ncinterno-avisos-posicao-y';
+        const chavePosicaoMinimizada = 'ncinterno-avisos-posicao-y-minimizado';
         const toggle = document.getElementById('notificationToggle');
         const close = document.getElementById('notificationClose');
         const header = painel.querySelector('.notification-header');
+        let arrastouToggle = false;
 
         function definirMinimizado(minimizado) {
             painel.classList.toggle('is-minimized', minimizado);
             if (toggle) toggle.setAttribute('aria-expanded', String(!minimizado));
-            if (!minimizado) aplicarPosicaoSalva();
+            if (minimizado) aplicarPosicaoMinimizada();
+            else aplicarPosicaoSalva();
             try {
                 localStorage.setItem(chavePainel, minimizado ? '1' : '0');
             } catch (error) {
@@ -68,7 +74,15 @@
         }
 
         if (close) close.addEventListener('click', function () { definirMinimizado(true); });
-        if (toggle) toggle.addEventListener('click', function () { definirMinimizado(false); });
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                if (arrastouToggle) {
+                    arrastouToggle = false;
+                    return;
+                }
+                definirMinimizado(false);
+            });
+        }
 
         function limitarPosicao(top) {
             const margem = 8;
@@ -84,9 +98,29 @@
                 if (Number.isFinite(salva) && salva > 0) {
                     painel.style.top = limitarPosicao(salva) + 'px';
                     painel.style.bottom = 'auto';
+                } else {
+                    painel.style.top = (window.innerWidth <= 700 ? 74 : 86) + 'px';
+                    painel.style.bottom = 'auto';
                 }
             } catch (error) {
                 // Mantém a posição padrão quando o armazenamento estiver bloqueado.
+            }
+        }
+
+        function aplicarPosicaoMinimizada() {
+            if (!painel.classList.contains('is-minimized')) return;
+            try {
+                const salva = Number(localStorage.getItem(chavePosicaoMinimizada));
+                if (Number.isFinite(salva) && salva > 0) {
+                    painel.style.top = limitarPosicao(salva) + 'px';
+                    painel.style.bottom = 'auto';
+                } else {
+                    painel.style.top = 'auto';
+                    painel.style.bottom = '80px';
+                }
+            } catch (error) {
+                painel.style.top = 'auto';
+                painel.style.bottom = '80px';
             }
         }
 
@@ -128,9 +162,50 @@
             });
         }
 
+        if (toggle) {
+            toggle.addEventListener('pointerdown', function (event) {
+                event.preventDefault();
+                const inicioY = event.clientY;
+                const inicioTop = painel.getBoundingClientRect().top;
+                arrastouToggle = false;
+                painel.classList.add('is-dragging');
+                toggle.setPointerCapture(event.pointerId);
+
+                function mover(moveEvent) {
+                    if (Math.abs(moveEvent.clientY - inicioY) > 4) {
+                        arrastouToggle = true;
+                    }
+                    if (!arrastouToggle) return;
+                    const top = limitarPosicao(inicioTop + moveEvent.clientY - inicioY);
+                    painel.style.top = top + 'px';
+                    painel.style.bottom = 'auto';
+                }
+
+                function finalizar() {
+                    painel.classList.remove('is-dragging');
+                    toggle.removeEventListener('pointermove', mover);
+                    toggle.removeEventListener('pointerup', finalizar);
+                    toggle.removeEventListener('pointercancel', finalizar);
+                    if (!arrastouToggle) return;
+                    try {
+                        localStorage.setItem(
+                            chavePosicaoMinimizada,
+                            String(Math.round(painel.getBoundingClientRect().top))
+                        );
+                    } catch (error) {
+                        // A movimentação continua funcional sem persistência.
+                    }
+                }
+
+                toggle.addEventListener('pointermove', mover);
+                toggle.addEventListener('pointerup', finalizar);
+                toggle.addEventListener('pointercancel', finalizar);
+            });
+        }
+
         window.addEventListener('resize', function () {
-            if (painel.classList.contains('is-minimized')) return;
             painel.style.top = limitarPosicao(painel.getBoundingClientRect().top) + 'px';
+            painel.style.bottom = 'auto';
         });
 
         function csrfToken() {

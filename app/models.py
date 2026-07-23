@@ -328,4 +328,24 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comentário de {self.autor} em {self.criado_em.strftime('%d/%m/%Y %H:%M')}"
+
+
+class AnexoTicket(models.Model):
+    tarefa = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='anexos')
+    arquivo = models.FileField(upload_to='tickets/anexos/%Y/%m/')
+    nome_original = models.CharField(max_length=255)
+    tamanho = models.PositiveBigIntegerField(default=0)
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='anexos_enviados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.nome_original
     

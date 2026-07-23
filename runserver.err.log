@@ -1,2 +1,5 @@
-[23/Jul/2026 11:06:43] "GET /login/ HTTP/1.1" 200 1918
-[23/Jul/2026 11:06:43,406] - Broken pipe from ('127.0.0.1', 59647)
+[23/Jul/2026 17:33:09] "GET /tarefas/ HTTP/1.1" 200 17399
+[23/Jul/2026 17:33:09] "GET /static/app/theme.css?v=20260724-2 HTTP/1.1" 200 18541
+[23/Jul/2026 17:33:09] "GET /static/app/theme.js?v=20260724-2 HTTP/1.1" 304 0
+[23/Jul/2026 17:33:16] "GET /login/ HTTP/1.1" 200 1918
+[23/Jul/2026 17:33:16,410] - Broken pipe from ('127.0.0.1', 63829)
