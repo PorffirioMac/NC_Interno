@@ -1,0 +1,74 @@
+{% if request.user.is_authenticated %}
+<aside class="notification-panel" id="notificationPanel" aria-label="Central de notificações">
+    <button type="button" class="notification-toggle" id="notificationToggle"
+            aria-controls="notificationContent" aria-expanded="true">
+        <span class="notification-toggle-icon">🔔</span>
+        <span class="notification-toggle-label">Avisos</span>
+        {% if painel_total_alertas %}
+        <span class="notification-badge" id="notificationBadge">{{ painel_total_alertas }}</span>
+        {% endif %}
+        <span class="notification-chevron" aria-hidden="true">›</span>
+    </button>
+    <div class="notification-content" id="notificationContent">
+        <div class="notification-header">
+            <div><strong>Central de avisos</strong><small>Seus prazos e atualizações</small></div>
+            <button type="button" class="notification-close" id="notificationClose"
+                    title="Minimizar" aria-label="Minimizar central">×</button>
+        </div>
+        <section class="notification-section">
+            <h3>⏰ Prazos</h3>
+            {% for tarefa_item in painel_prazos %}
+            <a class="notification-item deadline {% if tarefa_item.prazo < painel_hoje %}overdue{% else %}today{% endif %}"
+               href="{% url 'detalhes_tarefa' tarefa_item.id %}">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ tarefa_item.titulo }}</strong>
+                    <small>{% if tarefa_item.prazo < painel_hoje %}Venceu em {{ tarefa_item.prazo|date:'d/m/Y' }}{% else %}Vence hoje{% endif %}{% if tarefa_item.cliente %} · {{ tarefa_item.cliente.nome_fantasia }}{% endif %}</small>
+                </span>
+            </a>
+            {% empty %}
+            <p class="notification-empty">Nenhum ticket vencido ou para hoje.</p>
+            {% endfor %}
+        </section>
+        <section class="notification-section">
+            <div class="notification-section-title">
+                <h3>📥 Comunicados</h3>
+                <a class="notification-inbox-link" href="{% url 'caixa_entrada' %}">Ver caixa</a>
+            </div>
+            {% for entrega in painel_comunicacoes %}
+            <a class="notification-item communication unread"
+               href="{% url 'caixa_entrada' %}?mensagem={{ entrega.comunicacao_id }}">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ entrega.comunicacao.titulo }}</strong>
+                    <small>{{ entrega.comunicacao.get_categoria_display }} · {{ entrega.comunicacao.criado_em|date:'d/m/Y H:i' }}</small>
+                </span>
+            </a>
+            {% empty %}
+            <p class="notification-empty">Nenhum comunicado novo.</p>
+            {% endfor %}
+        </section>
+        <section class="notification-section">
+            <div class="notification-section-title">
+                <h3>💬 Atualizações</h3>
+                {% if painel_nao_lidas %}
+                <button type="button" class="notification-read-all" id="notificationReadAll"
+                        data-url="{% url 'marcar_todas_notificacoes_lidas' %}">Marcar todas como lidas</button>
+                {% endif %}
+            </div>
+            <div id="notificationUpdates">
+                {% for notificacao in painel_notificacoes %}
+                <a class="notification-item update {% if not notificacao.lida %}unread{% endif %}"
+                   href="{% url 'detalhes_tarefa' notificacao.tarefa_id %}"
+                   data-read-url="{% url 'marcar_notificacao_lida' notificacao.id %}">
+                    <span class="notification-dot"></span>
+                    <span><strong>{{ notificacao.mensagem }}</strong><small>{{ notificacao.criado_em|date:'d/m/Y H:i' }}</small></span>
+                </a>
+                {% empty %}
+                <p class="notification-empty">Nenhuma atualização recebida.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</aside>
+{% endif %}

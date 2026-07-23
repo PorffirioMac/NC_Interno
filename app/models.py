@@ -216,6 +216,107 @@ class ChecklistItem(models.Model):
     def __str__(self):
         return f"{'✅' if self.concluido else '⬜'} {self.descricao}"
 
+class DeadlineHistory(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='prazo_historico')
+    anterior = models.DateField(null=True, blank=True)
+    novo = models.DateField(null=True, blank=True)
+    motivo = models.TextField()
+    autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+
+class Notificacao(models.Model):
+    TIPOS = [
+        ('comentario', 'Comentário'),
+        ('atribuicao', 'Atribuição'),
+    ]
+
+    destinatario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificacoes')
+    ator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='notificacoes_geradas',
+    )
+    tarefa = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='notificacoes')
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    mensagem = models.CharField(max_length=500)
+    lida = models.BooleanField(default=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        indexes = [models.Index(fields=['destinatario', 'lida', '-criado_em'])]
+
+    def __str__(self):
+        return self.mensagem
+
+
+class Comunicacao(models.Model):
+    CATEGORIAS = [
+        ('aviso', 'Aviso'),
+        ('release', 'Release'),
+        ('sistema', 'Sistema'),
+    ]
+
+    categoria = models.CharField(max_length=20, choices=CATEGORIAS, default='aviso')
+    titulo = models.CharField(max_length=200)
+    conteudo = models.TextField()
+    autor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='comunicacoes_publicadas',
+    )
+    release = models.OneToOneField(
+        Release,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='comunicacao',
+    )
+    destinatarios = models.ManyToManyField(
+        User,
+        through='ComunicacaoDestinatario',
+        related_name='comunicacoes_recebidas',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.titulo
+
+
+class ComunicacaoDestinatario(models.Model):
+    comunicacao = models.ForeignKey(
+        Comunicacao,
+        on_delete=models.CASCADE,
+        related_name='entregas',
+    )
+    destinatario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='entregas_comunicacao',
+    )
+    lida = models.BooleanField(default=False)
+    lida_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-comunicacao__criado_em']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['comunicacao', 'destinatario'],
+                name='comunicacao_destinatario_unico',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['destinatario', 'lida']),
+        ]
+
+
 class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comentarios')
     autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)

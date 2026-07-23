@@ -3,12 +3,156 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Max, Q
 from django.utils import timezone
+from django.urls import reverse
 from .forms import ClienteForm, ErroConhecidoForm, ReleaseForm, SolicitacaoReleaseForm
-from .models import Cliente, ComentarioSolicitacao, ErroConhecido, Release, SolicitacaoRelease, Task, ChecklistItem, Comment
+from .models import (
+    Cliente, ComentarioSolicitacao, ErroConhecido, Release,
+    SolicitacaoRelease, Task, ChecklistItem, Comment, Notificacao,
+    Comunicacao, ComunicacaoDestinatario,
+)
+
+
+def sair(request):
+    logout(request)
+    return redirect('login')
+
+
+def notificar_atribuicao(tarefa, destinatario, ator):
+    if destinatario and destinatario != ator:
+        Notificacao.objects.create(
+            destinatario=destinatario,
+            ator=ator,
+            tarefa=tarefa,
+            tipo='atribuicao',
+            mensagem=f'Ticket "{tarefa.titulo}" foi atribuído para você por {ator.username}.',
+        )
+
+
+def notificar_comentario(tarefa, ator):
+    if tarefa.responsavel and tarefa.responsavel != ator:
+        Notificacao.objects.create(
+            destinatario=tarefa.responsavel,
+            ator=ator,
+            tarefa=tarefa,
+            tipo='comentario',
+            mensagem=f'{ator.username} comentou no ticket "{tarefa.titulo}".',
+        )
+
+
+def publicar_comunicacao(categoria, titulo, conteudo, autor, destinatarios, release=None):
+    comunicacao = Comunicacao.objects.create(
+        categoria=categoria,
+        titulo=titulo,
+        conteudo=conteudo,
+        autor=autor,
+        release=release,
+    )
+    ComunicacaoDestinatario.objects.bulk_create([
+        ComunicacaoDestinatario(comunicacao=comunicacao, destinatario=usuario)
+        for usuario in destinatarios
+    ])
+    return comunicacao
+
+
+@login_required(login_url='/login/')
+@require_POST
+def marcar_notificacao_lida(request, notificacao_id):
+    notificacao = get_object_or_404(
+        Notificacao, id=notificacao_id, destinatario=request.user,
+    )
+    notificacao.lida = True
+    notificacao.save(update_fields=['lida'])
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='/login/')
+@require_POST
+def marcar_todas_notificacoes_lidas(request):
+    atualizadas = Notificacao.objects.filter(
+        destinatario=request.user, lida=False,
+    ).update(lida=True)
+    return JsonResponse({'ok': True, 'atualizadas': atualizadas})
+
+
+@login_required(login_url='/login/')
+def caixa_entrada(request):
+    if request.method == 'POST' and request.user.is_superuser:
+        titulo = request.POST.get('titulo', '').strip()
+        conteudo = request.POST.get('conteudo', '').strip()
+        categoria = request.POST.get('categoria', 'aviso')
+        if categoria not in dict(Comunicacao.CATEGORIAS):
+            categoria = 'aviso'
+
+        if request.POST.get('para_todos'):
+            destinatarios = User.objects.filter(is_active=True)
+        else:
+            ids = request.POST.getlist('destinatarios')
+            destinatarios = User.objects.filter(is_active=True, id__in=ids)
+
+        if not titulo or not conteudo:
+            messages.error(request, 'Informe o título e o conteúdo do comunicado.')
+        elif not destinatarios.exists():
+            messages.error(request, 'Selecione pelo menos um destinatário.')
+        else:
+            publicar_comunicacao(
+                categoria, titulo, conteudo, request.user, destinatarios,
+            )
+            messages.success(request, 'Comunicado enviado com sucesso!')
+            return redirect('caixa_entrada')
+
+    entregas = (
+        ComunicacaoDestinatario.objects.filter(destinatario=request.user)
+        .select_related('comunicacao', 'comunicacao__autor')
+        .order_by('-comunicacao__criado_em')
+    )
+    categoria_filtro = request.GET.get('categoria', '')
+    if categoria_filtro in dict(Comunicacao.CATEGORIAS):
+        entregas = entregas.filter(comunicacao__categoria=categoria_filtro)
+    else:
+        categoria_filtro = ''
+
+    entrega_aberta = None
+    mensagem_id = request.GET.get('mensagem')
+    if mensagem_id and mensagem_id.isdigit():
+        entrega_aberta = get_object_or_404(
+            ComunicacaoDestinatario.objects.select_related(
+                'comunicacao', 'comunicacao__autor',
+            ),
+            comunicacao_id=mensagem_id,
+            destinatario=request.user,
+        )
+
+    return render(request, 'app/caixa_entrada.html', {
+        'entregas': entregas,
+        'entrega_aberta': entrega_aberta,
+        'categoria_filtro': categoria_filtro,
+        'categorias': Comunicacao.CATEGORIAS,
+        'usuarios': User.objects.filter(is_active=True).order_by('username')
+        if request.user.is_superuser else None,
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def alterar_leitura_comunicacao(request, comunicacao_id):
+    entrega = get_object_or_404(
+        ComunicacaoDestinatario,
+        comunicacao_id=comunicacao_id,
+        destinatario=request.user,
+    )
+    lida = request.POST.get('lida') == '1'
+    entrega.lida = lida
+    entrega.lida_em = timezone.now() if lida else None
+    entrega.save(update_fields=['lida', 'lida_em'])
+    proxima = request.POST.get('next', '')
+    if proxima.startswith('/'):
+        return redirect(proxima)
+    return redirect(f"{reverse('caixa_entrada')}?mensagem={comunicacao_id}")
 
 
 @login_required(login_url='/login/')
@@ -22,6 +166,14 @@ def releases(request):
             release = release_form.save(commit=False)
             release.publicado_por = request.user
             release.save()
+            publicar_comunicacao(
+                'release',
+                f'Nova versão {release.versao}: {release.titulo}',
+                release.conteudo,
+                request.user,
+                User.objects.filter(is_active=True),
+                release=release,
+            )
             messages.success(request, 'Release publicado com sucesso!')
             return redirect('releases')
     elif request.method == 'POST' and 'enviar_solicitacao' in request.POST:
@@ -411,6 +563,7 @@ def gerar_ticket_implantacao(request, tarefa_id):
         prazo=comercial.prazo,
         origem_comercial=comercial,
     )
+    notificar_atribuicao(implantacao, implantacao.responsavel, request.user)
 
     checklist_implantacao = [
         'SQL/Concentrador/PDV/Terminais/SAT',
@@ -441,12 +594,15 @@ def atribuir_tarefa(request, tarefa_id):
         return redirect('tarefas')
 
     if request.method == 'POST':
+        responsavel_anterior_id = tarefa.responsavel_id
         responsavel_id = request.POST.get('responsavel')
         if responsavel_id:
             tarefa.responsavel = get_object_or_404(User, id=responsavel_id)
         else:
             tarefa.responsavel = None
         tarefa.save()
+        if tarefa.responsavel_id != responsavel_anterior_id:
+            notificar_atribuicao(tarefa, tarefa.responsavel, request.user)
         messages.success(request, 'Responsável atualizado!')
 
     return redirect('tarefas')
@@ -495,6 +651,7 @@ def criar_tarefa(request):
             cliente=cliente,
             prazo=prazo,
         )
+        notificar_atribuicao(tarefa, tarefa.responsavel, request.user)
 
         checklists_padrao = {
             'comercial': [
@@ -562,12 +719,15 @@ def detalhes_tarefa(request, tarefa_id):
             tarefa.save()
             messages.success(request, 'Cliente vinculado ao ticket!')
         elif 'responsavel' in request.POST and request.user.is_superuser:
+            responsavel_anterior_id = tarefa.responsavel_id
             responsavel_id = request.POST.get('responsavel')
             if responsavel_id:
                 tarefa.responsavel = get_object_or_404(User, id=responsavel_id)
             else:
                 tarefa.responsavel = None
             tarefa.save()
+            if tarefa.responsavel_id != responsavel_anterior_id:
+                notificar_atribuicao(tarefa, tarefa.responsavel, request.user)
             messages.success(request, 'Responsável atualizado!')
         elif 'checklist' in request.POST:
             ChecklistItem.objects.create(
@@ -581,6 +741,7 @@ def detalhes_tarefa(request, tarefa_id):
                 autor=request.user,
                 texto=request.POST['texto'],
             )
+            notificar_comentario(tarefa, request.user)
             messages.success(request, 'Comentário adicionado!')
         elif 'concluir_check' in request.POST:
             item = get_object_or_404(ChecklistItem, id=request.POST['item_id'])
