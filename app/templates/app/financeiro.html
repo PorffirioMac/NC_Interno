@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financeiro - NC_Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; }
+        .topo { color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1250px; margin: 30px auto; padding: 0 20px; }
+        .finance-summary { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; margin-bottom: 24px; }
+        .finance-total { padding: 22px 26px; border-radius: 14px; background: var(--surface-strong); border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .finance-total span { display: block; color: var(--text-muted); font-size: 13px; margin-bottom: 5px; }
+        .finance-total strong { font-size: 28px; color: var(--primary) !important; }
+        .btn { display: inline-block; border: 0; border-radius: 8px; padding: 10px 16px; background: #1769d2; color: white; text-decoration: none; cursor: pointer; font-weight: 600; }
+        .btn-danger { background: #b42318; }
+        .btn-muted { background: #68758a; }
+        .expense-compose { margin-bottom: 28px; padding: 22px; }
+        .expense-compose summary { cursor: pointer; color: var(--text); font-size: 18px; font-weight: 700; }
+        .expense-form { margin-top: 20px; }
+        .form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; }
+        .expense-form label { display: block; font-weight: 700; }
+        .expense-form input, .expense-form textarea { width: 100%; padding: 11px 12px; margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+        .expense-form .description { margin: 15px 0; }
+        .field-errors { color: #b42318; font-size: 12px; margin-top: 5px; }
+        .messages { list-style: none; margin-bottom: 18px; }
+        .messages li { padding: 12px 15px; border-radius: 8px; background: #d9f4e3; color: #176b38; }
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin: 30px 0 16px; }
+        .section-title span { color: var(--text-muted); font-size: 14px; }
+        .week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+        .day-card { min-height: 190px; padding: 15px; border-radius: 14px; }
+        .day-card.today, .month-cell.today { border: 2px solid var(--primary) !important; }
+        .day-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .weekday { color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
+        .date { color: var(--primary); font-size: 18px; font-weight: 800; }
+        .expense-chip { display: block; margin-bottom: 8px; padding: 9px 10px; border-radius: 9px; background: var(--primary-soft); color: var(--text); font-size: 12px; }
+        .expense-chip strong { display: block; margin-bottom: 2px; }
+        .expense-chip span { color: var(--primary); font-weight: 700; }
+        .empty-day { color: var(--text-muted) !important; font-size: 12px; }
+        .month-calendar { padding: 20px; border-radius: 16px; }
+        .month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; }
+        .weekday-label { text-align: center; padding: 8px; color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .month-cell { min-height: 120px; padding: 11px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+        .month-cell.outside { opacity: .42; }
+        .cell-date { font-weight: 800; margin-bottom: 8px; }
+        .month-expense { font-size: 11px; padding: 6px 7px; margin-bottom: 5px; border-radius: 7px; background: var(--primary-soft); overflow-wrap: anywhere; }
+        .expense-list { margin-top: 30px; padding: 22px; }
+        .expense-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .expense-table th, .expense-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .expense-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+        .expense-actions form { margin: 0; }
+        .expense-actions .btn { padding: 7px 10px; font-size: 12px; }
+        .status-paused { color: var(--text-muted); font-weight: 700; }
+        @media (max-width: 900px) {
+            .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .month-calendar { overflow-x: auto; }
+            .month-grid { min-width: 780px; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 560px) {
+            .finance-summary { grid-template-columns: 1fr; }
+            .week-grid { grid-template-columns: 1fr; }
+            .expense-list { overflow-x: auto; }
+            .expense-table { min-width: 720px; }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2">
+    <script src="/static/app/theme.js?v=20260724-3"></script>
+</head>
+<body>
+    <header class="topo">
+        <h2>💰 Financeiro</h2>
+        <span>{{ user.get_full_name|default:user.username }}</span>
+    </header>
+    {% include 'app/base_nav_snippet.html' %}
+
+    <main class="container">
+        {% if messages %}
+        <ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        <div class="finance-summary">
+            <div>
+                <h1>Despesas recorrentes</h1>
+                <p style="color:var(--text-muted);margin-top:6px;">Compromissos fixos que se repetem mensalmente.</p>
+            </div>
+            <div class="finance-total">
+                <span>Total mensal ativo</span>
+                <strong>R$ {{ total_mensal|floatformat:2 }}</strong>
+            </div>
+        </div>
+
+        <details class="expense-compose card-detalhe" {% if form.errors %}open{% endif %}>
+            <summary>＋ Cadastrar despesa recorrente</summary>
+            <form method="post" class="expense-form">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_despesa" value="1">
+                <div class="form-grid">
+                    <label>{{ form.titulo.label }}{{ form.titulo }}{% for error in form.titulo.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <label>{{ form.valor.label }}{{ form.valor }}{% for error in form.valor.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <label>{{ form.dia_vencimento.label }}{{ form.dia_vencimento }}{% for error in form.dia_vencimento.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                </div>
+                <label class="description">{{ form.descricao.label }}{{ form.descricao }}{% for error in form.descricao.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                <button type="submit" class="btn">Salvar despesa</button>
+            </form>
+        </details>
+
+        <div class="section-title">
+            <h2>Semana atual</h2>
+            <span>{{ week_start|date:"d/m/Y" }} – {{ week_end|date:"d/m/Y" }}</span>
+        </div>
+        <div class="week-grid">
+            {% for day in week_days %}
+            <section class="day-card {% if day.is_today %}today{% endif %}">
+                <div class="day-header"><span class="weekday">{{ day.label }}</span><span class="date">{{ day.date|date:"d" }}</span></div>
+                {% for despesa in day.expenses %}
+                <div class="expense-chip"><strong>{{ despesa.titulo }}</strong><span>R$ {{ despesa.valor|floatformat:2 }}</span></div>
+                {% empty %}
+                <p class="empty-day">Sem despesas neste dia.</p>
+                {% endfor %}
+            </section>
+            {% endfor %}
+        </div>
+
+        <div class="section-title">
+            <h2>Mês atual</h2>
+            <span>{{ month_name }} {{ current_year }}</span>
+        </div>
+        <section class="month-calendar">
+            <div class="month-grid">
+                <div class="weekday-label">Seg</div><div class="weekday-label">Ter</div>
+                <div class="weekday-label">Qua</div><div class="weekday-label">Qui</div>
+                <div class="weekday-label">Sex</div><div class="weekday-label">Sáb</div>
+                <div class="weekday-label">Dom</div>
+                {% for week in month_weeks %}{% for day in week %}
+                <div class="month-cell {% if not day.is_current_month %}outside{% endif %} {% if day.is_today %}today{% endif %}">
+                    <div class="cell-date">{{ day.date|date:"d" }}</div>
+                    {% for despesa in day.expenses %}
+                    <div class="month-expense"><strong>{{ despesa.titulo|truncatechars:22 }}</strong><br>R$ {{ despesa.valor|floatformat:2 }}</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}{% endfor %}
+            </div>
+        </section>
+
+        <section class="expense-list card-detalhe">
+            <h2>Despesas cadastradas</h2>
+            <table class="expense-table">
+                <thead><tr><th>Despesa</th><th>Valor mensal</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody>
+                    {% for despesa in despesas %}
+                    <tr>
+                        <td><strong>{{ despesa.titulo }}</strong>{% if despesa.descricao %}<br><small>{{ despesa.descricao|truncatechars:80 }}</small>{% endif %}</td>
+                        <td>R$ {{ despesa.valor|floatformat:2 }}</td>
+                        <td>Dia {{ despesa.dia_vencimento }}</td>
+                        <td>{% if despesa.ativa %}Ativa{% else %}<span class="status-paused">Pausada</span>{% endif %}</td>
+                        <td class="expense-actions">
+                            <form method="post">{% csrf_token %}<input type="hidden" name="alternar_despesa" value="1"><input type="hidden" name="despesa_id" value="{{ despesa.id }}"><button class="btn btn-muted" type="submit">{% if despesa.ativa %}Pausar{% else %}Ativar{% endif %}</button></form>
+                            <form method="post">{% csrf_token %}<input type="hidden" name="remover_despesa" value="1"><input type="hidden" name="despesa_id" value="{{ despesa.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover esta despesa recorrente?')">Remover</button></form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">Nenhuma despesa cadastrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>

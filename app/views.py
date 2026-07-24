@@ -1,21 +1,28 @@
 from datetime import date, datetime, timedelta
+from calendar import monthrange
 from pathlib import Path
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import FileResponse, JsonResponse
 from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Count, F, Max, Q
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
-from .forms import ClienteForm, ErroConhecidoForm, ReleaseForm, SolicitacaoReleaseForm
+from .forms import (
+    ClienteForm, DespesaFinanceiraForm, ErroConhecidoForm, ReleaseForm,
+    RotinaForm, SolicitacaoReleaseForm,
+)
 from .models import (
     Cliente, ComentarioSolicitacao, ErroConhecido, Release,
     SolicitacaoRelease, Task, ChecklistItem, Comment, Notificacao,
-    AnexoTicket, Comunicacao, ComunicacaoDestinatario,
+    AnexoTicket, Comunicacao, ComunicacaoDestinatario, DespesaFinanceira,
+    Rotina, RotinaConclusao,
 )
+from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 
 
 def sair(request):
@@ -78,6 +85,59 @@ def marcar_todas_notificacoes_lidas(request):
         destinatario=request.user, lida=False,
     ).update(lida=True)
     return JsonResponse({'ok': True, 'atualizadas': atualizadas})
+
+
+@login_required(login_url='/login/')
+def status_notificacoes(request):
+    resumo_notificacoes = Notificacao.objects.filter(
+        destinatario=request.user,
+        lida=False,
+    ).aggregate(total=Count('id'), ultima=Max('id'))
+    resumo_comunicacoes = ComunicacaoDestinatario.objects.filter(
+        destinatario=request.user,
+        lida=False,
+    ).aggregate(total=Count('id'), ultima=Max('id'))
+    total_despesas = 0
+    ultima_despesa = 0
+    if request.user.has_perm('app.acessar_financeiro'):
+        hoje = date.today()
+        ultimo_dia = monthrange(hoje.year, hoje.month)[1]
+        filtro_dia = (
+            {'dia_vencimento__gte': hoje.day}
+            if hoje.day == ultimo_dia
+            else {'dia_vencimento': hoje.day}
+        )
+        resumo_despesas = DespesaFinanceira.objects.filter(
+            ativa=True,
+            **filtro_dia,
+        ).aggregate(total=Count('id'), ultima=Max('id'))
+        total_despesas = resumo_despesas['total']
+        ultima_despesa = resumo_despesas['ultima'] or 0
+    hoje = date.today()
+    rotinas_pendentes = rotinas_pendentes_usuario(request.user, hoje)
+    marcador_rotina = max(
+        (
+            periodo_referencia(item, hoje).toordinal() * 1_000_000 + item.id
+            for item in rotinas_pendentes
+        ),
+        default=0,
+    )
+    resposta = JsonResponse({
+        'total': (
+            resumo_notificacoes['total']
+            + resumo_comunicacoes['total']
+            + total_despesas
+            + len(rotinas_pendentes)
+        ),
+        'assinatura': (
+            f"{resumo_notificacoes['ultima'] or 0}:"
+            f"{resumo_comunicacoes['ultima'] or 0}:"
+            f"{ultima_despesa}:"
+            f"{marcador_rotina}"
+        ),
+    })
+    resposta['Cache-Control'] = 'no-store'
+    return resposta
 
 
 @login_required(login_url='/login/')
@@ -1004,6 +1064,192 @@ def calendario(request):
         'current_year': hoje.year,
         'month_tasks': month_tasks,
     })
+
+
+def _data_vencimento_mensal(despesa, ano, mes):
+    ultimo_dia = monthrange(ano, mes)[1]
+    return date(ano, mes, min(despesa.dia_vencimento, ultimo_dia))
+
+
+@login_required(login_url='/login/')
+@permission_required('app.acessar_financeiro', raise_exception=True)
+def financeiro(request):
+    if request.method == 'POST':
+        if 'salvar_despesa' in request.POST:
+            form = DespesaFinanceiraForm(request.POST)
+            if form.is_valid():
+                despesa = form.save(commit=False)
+                despesa.criado_por = request.user
+                despesa.save()
+                messages.success(request, 'Despesa recorrente cadastrada com sucesso!')
+                return redirect('financeiro')
+        elif 'alternar_despesa' in request.POST:
+            despesa = get_object_or_404(
+                DespesaFinanceira,
+                id=request.POST.get('despesa_id'),
+            )
+            despesa.ativa = not despesa.ativa
+            despesa.save(update_fields=['ativa', 'atualizado_em'])
+            messages.success(
+                request,
+                'Despesa ativada!' if despesa.ativa else 'Despesa pausada!',
+            )
+            return redirect('financeiro')
+        elif 'remover_despesa' in request.POST:
+            despesa = get_object_or_404(
+                DespesaFinanceira,
+                id=request.POST.get('despesa_id'),
+            )
+            despesa.delete()
+            messages.success(request, 'Despesa removida com sucesso!')
+            return redirect('financeiro')
+        else:
+            form = DespesaFinanceiraForm()
+    else:
+        form = DespesaFinanceiraForm()
+
+    hoje = date.today()
+    despesas_ativas = list(DespesaFinanceira.objects.filter(ativa=True))
+    despesas = DespesaFinanceira.objects.select_related('criado_por').all()
+    semana_inicio = hoje - timedelta(days=hoje.weekday())
+    semana_fim = semana_inicio + timedelta(days=6)
+
+    def despesas_na_data(dia):
+        if dia.month != hoje.month or dia.year != hoje.year:
+            return []
+        return [
+            despesa for despesa in despesas_ativas
+            if _data_vencimento_mensal(despesa, dia.year, dia.month) == dia
+        ]
+
+    week_days = []
+    for indice in range(7):
+        dia = semana_inicio + timedelta(days=indice)
+        week_days.append({
+            'label': dia.strftime('%a'),
+            'date': dia,
+            'is_today': dia == hoje,
+            'expenses': despesas_na_data(dia),
+        })
+
+    month_start = hoje.replace(day=1)
+    next_month = (month_start + timedelta(days=32)).replace(day=1)
+    month_end = next_month - timedelta(days=1)
+    first_calendar_day = month_start - timedelta(days=month_start.weekday())
+    month_weeks = []
+    day_cursor = first_calendar_day
+    while day_cursor <= month_end or day_cursor.weekday() != 0:
+        week = []
+        for _ in range(7):
+            week.append({
+                'date': day_cursor,
+                'is_current_month': day_cursor.month == hoje.month,
+                'is_today': day_cursor == hoje,
+                'expenses': despesas_na_data(day_cursor),
+            })
+            day_cursor += timedelta(days=1)
+        month_weeks.append(week)
+
+    nomes_meses = [
+        '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    ]
+    return render(request, 'app/financeiro.html', {
+        'form': form,
+        'despesas': despesas,
+        'week_days': week_days,
+        'week_start': semana_inicio,
+        'week_end': semana_fim,
+        'month_weeks': month_weeks,
+        'month_name': nomes_meses[hoje.month],
+        'current_year': hoje.year,
+        'total_mensal': sum(despesa.valor for despesa in despesas_ativas),
+    })
+
+
+@login_required(login_url='/login/')
+def rotina(request):
+    pode_gerenciar = request.user.has_perm('app.gerenciar_rotinas')
+    if request.method == 'POST':
+        if not pode_gerenciar:
+            messages.error(request, 'Você não possui permissão para gerenciar rotinas.')
+            return redirect('rotina')
+        if 'salvar_rotina' in request.POST:
+            form = RotinaForm(request.POST)
+            if form.is_valid():
+                item = form.save(commit=False)
+                item.criado_por = request.user
+                item.save()
+                messages.success(request, 'Rotina criada com sucesso!')
+                return redirect('rotina')
+        elif 'alternar_rotina' in request.POST:
+            item = get_object_or_404(Rotina, id=request.POST.get('rotina_id'))
+            item.ativa = not item.ativa
+            item.save(update_fields=['ativa', 'atualizado_em'])
+            messages.success(
+                request,
+                'Rotina ativada!' if item.ativa else 'Rotina pausada!',
+            )
+            return redirect('rotina')
+        elif 'remover_rotina' in request.POST:
+            item = get_object_or_404(Rotina, id=request.POST.get('rotina_id'))
+            item.delete()
+            messages.success(request, 'Rotina removida com sucesso!')
+            return redirect('rotina')
+        else:
+            form = RotinaForm()
+    else:
+        form = RotinaForm()
+
+    pendentes = rotinas_pendentes_usuario(request.user)
+    historico = (
+        RotinaConclusao.objects.filter(rotina__responsavel=request.user)
+        .select_related('rotina', 'concluido_por')[:30]
+    )
+    todas_rotinas = (
+        Rotina.objects.select_related('responsavel', 'criado_por').all()
+        if pode_gerenciar else None
+    )
+    return render(request, 'app/rotina.html', {
+        'form': form,
+        'pendentes': pendentes,
+        'historico': historico,
+        'todas_rotinas': todas_rotinas,
+        'pode_gerenciar': pode_gerenciar,
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def concluir_rotina(request, rotina_id):
+    item = get_object_or_404(
+        Rotina,
+        id=rotina_id,
+        responsavel=request.user,
+        ativa=True,
+    )
+    referencia = periodo_referencia(item)
+    if referencia is None:
+        messages.error(request, 'Esta rotina ainda não está disponível para conclusão.')
+    else:
+        _, criada = RotinaConclusao.objects.get_or_create(
+            rotina=item,
+            periodo_referencia=referencia,
+            defaults={'concluido_por': request.user},
+        )
+        if criada:
+            messages.success(request, f'Rotina “{item.titulo}” concluída!')
+        else:
+            messages.info(request, 'Esta rotina já foi concluída neste período.')
+    destino = request.POST.get('next')
+    if destino and url_has_allowed_host_and_scheme(
+        destino,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(destino)
+    return redirect('rotina')
+
 
 @login_required(login_url='/login/')
 def encerrar_tarefa(request, tarefa_id):

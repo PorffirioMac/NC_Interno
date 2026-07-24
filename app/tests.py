@@ -1,17 +1,21 @@
 from datetime import date, timedelta
+from decimal import Decimal
 import shutil
 import tempfile
 
 from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
 
 from .models import (
-    AnexoTicket, Cliente, Comunicacao, ComunicacaoDestinatario, Notificacao,
-    Release, Task,
+    AnexoTicket, Cliente, Comunicacao, ComunicacaoDestinatario,
+    DespesaFinanceira, Notificacao, Release, Rotina, RotinaConclusao, Task,
 )
+from .rotinas import periodo_referencia, rotinas_pendentes_usuario
+from .views import _data_vencimento_mensal
 
 
 class PainelNotificacoesTests(TestCase):
@@ -73,6 +77,36 @@ class PainelNotificacoesTests(TestCase):
         self.assertEqual(resposta.status_code, 404)
         notificacao.refresh_from_db()
         self.assertFalse(notificacao.lida)
+
+    def test_status_reune_atualizacoes_e_mensagens_nao_lidas(self):
+        notificacao = Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='atribuicao',
+            mensagem='Nova atribuição.',
+        )
+        comunicacao = Comunicacao.objects.create(
+            categoria='aviso',
+            titulo='Novo comunicado',
+            conteudo='Conteúdo.',
+            autor=self.admin,
+        )
+        entrega = ComunicacaoDestinatario.objects.create(
+            comunicacao=comunicacao,
+            destinatario=self.operador,
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(reverse('status_notificacoes'))
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta.json()['total'], 2)
+        self.assertEqual(
+            resposta.json()['assinatura'],
+            f'{notificacao.id}:{entrega.id}:0:0',
+        )
+        self.assertEqual(resposta['Cache-Control'], 'no-store')
 
 
     def test_responsavel_pode_editar_dados_do_ticket(self):
@@ -232,6 +266,177 @@ class ClientesOrdenacaoTests(TestCase):
             cliente.observacoes,
             'Cliente prefere contato no período da tarde.',
         )
+
+
+class FinanceiroTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user('financeiro', password='senha')
+        self.sem_permissao = User.objects.create_user('comum', password='senha')
+        self.permissao = Permission.objects.get(codename='acessar_financeiro')
+        self.usuario.user_permissions.add(self.permissao)
+
+    def test_usuario_sem_permissao_nao_acessa_financeiro(self):
+        self.client.force_login(self.sem_permissao)
+
+        resposta = self.client.get(reverse('financeiro'))
+
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_usuario_autorizado_cadastra_despesa_recorrente(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_despesa': '1',
+            'titulo': 'Aluguel',
+            'valor': '1.250,50',
+            'dia_vencimento': '10',
+            'descricao': 'Escritório',
+        })
+
+        self.assertRedirects(resposta, reverse('financeiro'))
+        despesa = DespesaFinanceira.objects.get()
+        self.assertEqual(despesa.valor, Decimal('1250.50'))
+        self.assertEqual(despesa.criado_por, self.usuario)
+
+    def test_despesa_do_dia_aparece_no_popup_apenas_para_autorizado(self):
+        despesa = DespesaFinanceira.objects.create(
+            titulo='Internet',
+            valor=Decimal('199.90'),
+            dia_vencimento=date.today().day,
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(reverse('dashboard'))
+
+        self.assertContains(resposta, 'Financeiro hoje')
+        self.assertContains(resposta, despesa.titulo)
+
+        self.client.force_login(self.sem_permissao)
+        resposta = self.client.get(reverse('dashboard'))
+        self.assertNotContains(resposta, 'Financeiro hoje')
+        self.assertNotContains(resposta, despesa.titulo)
+
+    def test_vencimento_dia_31_ajusta_para_fim_de_mes_curto(self):
+        despesa = DespesaFinanceira(
+            titulo='Fechamento',
+            valor=Decimal('10.00'),
+            dia_vencimento=31,
+        )
+
+        vencimento = _data_vencimento_mensal(despesa, 2026, 2)
+
+        self.assertEqual(vencimento, date(2026, 2, 28))
+
+
+class RotinaTests(TestCase):
+    def setUp(self):
+        self.gerente = User.objects.create_user('gerente_rotina', password='senha')
+        self.funcionario = User.objects.create_user('funcionario_rotina', password='senha')
+        self.outro = User.objects.create_user('outro_rotina', password='senha')
+        self.gerente.user_permissions.add(
+            Permission.objects.get(codename='gerenciar_rotinas')
+        )
+
+    def test_gerente_cria_rotina_para_funcionario(self):
+        self.client.force_login(self.gerente)
+
+        resposta = self.client.post(reverse('rotina'), {
+            'salvar_rotina': '1',
+            'titulo': 'Conferir painel',
+            'responsavel': self.funcionario.id,
+            'periodicidade': 'diaria',
+            'dia_mes': '',
+            'descricao': 'Verificar pendências.',
+        })
+
+        self.assertRedirects(resposta, reverse('rotina'))
+        item = Rotina.objects.get()
+        self.assertEqual(item.responsavel, self.funcionario)
+        self.assertEqual(item.criado_por, self.gerente)
+
+    def test_rotina_diaria_aparece_no_popup_e_some_apos_check(self):
+        item = Rotina.objects.create(
+            titulo='Abrir operação',
+            responsavel=self.funcionario,
+            periodicidade='diaria',
+            criado_por=self.gerente,
+        )
+        self.client.force_login(self.funcionario)
+
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertContains(dashboard, 'Rotina pendente')
+        self.assertContains(dashboard, item.titulo)
+
+        resposta = self.client.post(
+            reverse('concluir_rotina', args=[item.id]),
+            {'next': reverse('dashboard')},
+        )
+        self.assertRedirects(resposta, reverse('dashboard'))
+        self.assertTrue(
+            RotinaConclusao.objects.filter(
+                rotina=item,
+                periodo_referencia=date.today(),
+            ).exists()
+        )
+
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertNotContains(dashboard, item.titulo)
+
+    def test_usuario_nao_conclui_rotina_de_outro(self):
+        item = Rotina.objects.create(
+            titulo='Rotina protegida',
+            responsavel=self.funcionario,
+            periodicidade='diaria',
+            criado_por=self.gerente,
+        )
+        self.client.force_login(self.outro)
+
+        resposta = self.client.post(reverse('concluir_rotina', args=[item.id]))
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(RotinaConclusao.objects.exists())
+
+    def test_regras_de_disponibilidade_semanal_e_mensal(self):
+        semanal = Rotina(
+            titulo='Resumo semanal',
+            responsavel=self.funcionario,
+            periodicidade='semanal',
+        )
+        mensal = Rotina(
+            titulo='Fechamento mensal',
+            responsavel=self.funcionario,
+            periodicidade='mensal',
+            dia_mes=15,
+        )
+
+        self.assertEqual(
+            periodo_referencia(semanal, date(2026, 7, 23)),
+            date(2026, 7, 20),
+        )
+        self.assertIsNone(periodo_referencia(mensal, date(2026, 7, 14)))
+        self.assertEqual(
+            periodo_referencia(mensal, date(2026, 7, 15)),
+            date(2026, 7, 15),
+        )
+
+    def test_conclusao_remove_apenas_periodo_atual(self):
+        item = Rotina.objects.create(
+            titulo='Rotina diária',
+            responsavel=self.funcionario,
+            periodicidade='diaria',
+            criado_por=self.gerente,
+        )
+        ontem = date.today() - timedelta(days=1)
+        RotinaConclusao.objects.create(
+            rotina=item,
+            concluido_por=self.funcionario,
+            periodo_referencia=ontem,
+        )
+
+        pendentes = rotinas_pendentes_usuario(self.funcionario)
+
+        self.assertEqual(pendentes, [item])
 
 
 class AnexoTicketTests(TestCase):

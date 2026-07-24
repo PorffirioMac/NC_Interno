@@ -44,6 +44,17 @@
         });
         aplicarTema(root.dataset.theme || temaInicial());
 
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function () {
+                try {
+                    sessionStorage.setItem('ncinterno-som-apos-login', '1');
+                } catch (error) {
+                    // O aviso continua funcionando nas próximas atualizações.
+                }
+            });
+        }
+
         const painel = document.getElementById('notificationPanel');
         if (!painel) return;
 
@@ -54,6 +65,144 @@
         const close = document.getElementById('notificationClose');
         const header = painel.querySelector('.notification-header');
         let arrastouToggle = false;
+
+        function tocarAviso() {
+            return new Promise(function (resolve, reject) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) {
+                    reject(new Error('Áudio não suportado.'));
+                    return;
+                }
+                try {
+                    const contexto = new AudioContext();
+                    function criarNota(frequencia, inicio, duracao, volume) {
+                        const oscilador = contexto.createOscillator();
+                        const ganho = contexto.createGain();
+                        oscilador.type = 'sine';
+                        oscilador.frequency.setValueAtTime(frequencia, inicio);
+                        ganho.gain.setValueAtTime(0.0001, inicio);
+                        ganho.gain.exponentialRampToValueAtTime(volume, inicio + 0.025);
+                        ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracao);
+                        oscilador.connect(ganho);
+                        ganho.connect(contexto.destination);
+                        oscilador.start(inicio);
+                        oscilador.stop(inicio + duracao);
+                    }
+                    function iniciar() {
+                        const agora = contexto.currentTime + 0.03;
+                        criarNota(659.25, agora, 0.22, 0.055);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.045);
+                        window.setTimeout(function () {
+                            contexto.close().finally(resolve);
+                        }, 650);
+                    }
+                    if (contexto.state === 'suspended') {
+                        contexto.resume().then(iniciar).catch(reject);
+                    } else {
+                        iniciar();
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        let somPendente = false;
+        function tocarOuAguardarInteracao() {
+            tocarAviso().catch(function () {
+                if (somPendente) return;
+                somPendente = true;
+                function tentarNovamente() {
+                    document.removeEventListener('pointerdown', tentarNovamente);
+                    document.removeEventListener('keydown', tentarNovamente);
+                    somPendente = false;
+                    tocarAviso().catch(function () {});
+                }
+                document.addEventListener('pointerdown', tentarNovamente, { once: true });
+                document.addEventListener('keydown', tentarNovamente, { once: true });
+            });
+        }
+
+        const usuarioId = painel.dataset.userId;
+        const chaveAssinatura = 'ncinterno-avisos-assinatura-' + usuarioId;
+        const chaveSessao = 'ncinterno-avisos-sessao-' + usuarioId;
+        let assinaturaAtual = painel.dataset.unreadSignature || '0:0';
+        let totalAtual = Number(painel.dataset.unreadCount || 0);
+
+        function idsDaAssinatura(assinatura) {
+            return String(assinatura).split(':').map(function (valor) {
+                return Number(valor) || 0;
+            });
+        }
+
+        function assinaturaTemNovidade(nova, anterior) {
+            const idsNovos = idsDaAssinatura(nova);
+            const idsAnteriores = idsDaAssinatura(anterior);
+            return idsNovos.some(function (id, indice) {
+                return id > (idsAnteriores[indice] || 0);
+            });
+        }
+
+        try {
+            const assinaturaSalva = localStorage.getItem(chaveAssinatura);
+            const veioDoLogin = sessionStorage.getItem('ncinterno-som-apos-login') === '1';
+            const primeiraPaginaDaSessao = sessionStorage.getItem(chaveSessao) !== '1';
+            sessionStorage.removeItem('ncinterno-som-apos-login');
+            sessionStorage.setItem(chaveSessao, '1');
+            if (
+                totalAtual > 0
+                && (
+                    veioDoLogin
+                    || primeiraPaginaDaSessao
+                    || (assinaturaSalva && assinaturaTemNovidade(assinaturaAtual, assinaturaSalva))
+                )
+            ) {
+                window.setTimeout(tocarOuAguardarInteracao, 350);
+            }
+            localStorage.setItem(chaveAssinatura, assinaturaAtual);
+        } catch (error) {
+            // O acompanhamento em memória continua disponível.
+        }
+
+        let consultandoStatus = false;
+        function consultarNovidades() {
+            if (consultandoStatus || document.hidden) return;
+            consultandoStatus = true;
+            fetch(painel.dataset.statusUrl, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                cache: 'no-store'
+            })
+                .then(function (resposta) {
+                    if (!resposta.ok) throw new Error('Não foi possível consultar os avisos.');
+                    return resposta.json();
+                })
+                .then(function (dados) {
+                    const novaAssinatura = dados.assinatura || '0:0';
+                    const novoTotal = Number(dados.total || 0);
+                    if (
+                        novoTotal > 0
+                        && assinaturaTemNovidade(novaAssinatura, assinaturaAtual)
+                    ) {
+                        tocarOuAguardarInteracao();
+                    }
+                    assinaturaAtual = novaAssinatura;
+                    totalAtual = novoTotal;
+                    try {
+                        localStorage.setItem(chaveAssinatura, assinaturaAtual);
+                    } catch (error) {
+                        // Mantém apenas o acompanhamento desta página.
+                    }
+                })
+                .catch(function () {
+                    // Falhas temporárias não interrompem a página.
+                })
+                .finally(function () {
+                    consultandoStatus = false;
+                });
+        }
+        window.setInterval(consultarNovidades, 20000);
+        document.addEventListener('visibilitychange', consultarNovidades);
 
         function definirMinimizado(minimizado) {
             painel.classList.toggle('is-minimized', minimizado);

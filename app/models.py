@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class Cliente(models.Model):
@@ -349,4 +350,106 @@ class AnexoTicket(models.Model):
 
     def __str__(self):
         return self.nome_original
+
+
+class DespesaFinanceira(models.Model):
+    titulo = models.CharField('Despesa', max_length=150)
+    descricao = models.TextField('Descrição', blank=True)
+    valor = models.DecimalField(
+        'Valor mensal',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    dia_vencimento = models.PositiveSmallIntegerField(
+        'Dia do vencimento',
+        validators=[MinValueValidator(1), MaxValueValidator(31)],
+    )
+    ativa = models.BooleanField(default=True)
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='despesas_financeiras_criadas',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['dia_vencimento', 'titulo']
+        permissions = [
+            ('acessar_financeiro', 'Pode acessar o Financeiro'),
+        ]
+
+    def __str__(self):
+        return f'{self.titulo} - dia {self.dia_vencimento}'
+
+
+class Rotina(models.Model):
+    PERIODICIDADES = [
+        ('diaria', 'Diária'),
+        ('semanal', 'Semanal'),
+        ('mensal', 'Mensal'),
+    ]
+
+    titulo = models.CharField(max_length=180)
+    descricao = models.TextField(blank=True)
+    responsavel = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='rotinas',
+    )
+    periodicidade = models.CharField(max_length=10, choices=PERIODICIDADES)
+    dia_mes = models.PositiveSmallIntegerField(
+        'Dia do mês',
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(31)],
+    )
+    ativa = models.BooleanField(default=True)
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='rotinas_criadas',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['responsavel__username', 'periodicidade', 'titulo']
+        permissions = [
+            ('gerenciar_rotinas', 'Pode gerenciar rotinas'),
+        ]
+
+    def __str__(self):
+        return f'{self.titulo} ({self.get_periodicidade_display()})'
+
+
+class RotinaConclusao(models.Model):
+    rotina = models.ForeignKey(
+        Rotina,
+        on_delete=models.CASCADE,
+        related_name='conclusoes',
+    )
+    concluido_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='rotinas_concluidas',
+    )
+    periodo_referencia = models.DateField()
+    concluido_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-concluido_em']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['rotina', 'periodo_referencia'],
+                name='rotina_conclusao_periodo_unico',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.rotina} - {self.periodo_referencia:%d/%m/%Y}'
     

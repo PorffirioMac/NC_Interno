@@ -1,5 +1,9 @@
 {% if request.user.is_authenticated %}
-<aside class="notification-panel" id="notificationPanel" aria-label="Central de notificações">
+<aside class="notification-panel" id="notificationPanel" aria-label="Central de notificações"
+       data-user-id="{{ request.user.id }}"
+       data-unread-count="{{ painel_total_novas }}"
+       data-unread-signature="{{ painel_assinatura_novas }}"
+       data-status-url="{% url 'status_notificacoes' %}">
     <button type="button" class="notification-toggle" id="notificationToggle"
             aria-controls="notificationContent" aria-expanded="true">
         <span class="notification-toggle-icon">🔔</span>
@@ -15,6 +19,45 @@
             <button type="button" class="notification-close" id="notificationClose"
                     title="Minimizar" aria-label="Minimizar central">×</button>
         </div>
+        {% if painel_rotinas_pendentes %}
+        <section class="notification-section">
+            <div class="notification-section-title">
+                <h3>✅ Rotina pendente</h3>
+                <a class="notification-inbox-link" href="{% url 'rotina' %}">Ver rotina</a>
+            </div>
+            {% for rotina_item in painel_rotinas_pendentes %}
+            <div class="notification-item routine">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ rotina_item.titulo }}</strong>
+                    <small>{{ rotina_item.get_periodicidade_display }}{% if rotina_item.periodicidade == 'mensal' %} · dia {{ rotina_item.dia_mes }}{% endif %}</small>
+                </span>
+                <form method="post" action="{% url 'concluir_rotina' rotina_item.id %}" class="routine-popup-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" title="Marcar como concluída" aria-label="Concluir {{ rotina_item.titulo }}">✓</button>
+                </form>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+        {% if painel_despesas_hoje %}
+        <section class="notification-section">
+            <div class="notification-section-title">
+                <h3>💰 Financeiro hoje</h3>
+                <a class="notification-inbox-link" href="{% url 'financeiro' %}">Ver financeiro</a>
+            </div>
+            {% for despesa in painel_despesas_hoje %}
+            <a class="notification-item finance" href="{% url 'financeiro' %}">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ despesa.titulo }}</strong>
+                    <small>Vence hoje · R$ {{ despesa.valor|floatformat:2 }}</small>
+                </span>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
         <section class="notification-section">
             <h3>⏰ Prazos</h3>
             {% for tarefa_item in painel_prazos %}

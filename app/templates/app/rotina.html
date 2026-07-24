@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotina - NC_Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; }
+        .topo { color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1150px; margin: 30px auto; padding: 0 20px; }
+        .page-intro { margin-bottom: 24px; }
+        .page-intro p { color: var(--text-muted) !important; margin-top: 6px; }
+        .messages { list-style: none; margin-bottom: 18px; }
+        .messages li { padding: 12px 15px; border-radius: 8px; background: var(--primary-soft); color: var(--text); }
+        .routine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 35px; }
+        .routine-card { padding: 20px; border-left: 4px solid var(--primary) !important; }
+        .routine-card h3 { margin-bottom: 7px; }
+        .routine-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .routine-tag { padding: 4px 8px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); font-size: 11px; font-weight: 800; }
+        .routine-description { color: var(--text-muted) !important; line-height: 1.5; margin-bottom: 16px; }
+        .complete-button { width: 100%; border: 0; border-radius: 9px; background: #218838; color: white; padding: 11px 14px; cursor: pointer; font-weight: 800; }
+        .empty-state { padding: 30px; text-align: center; color: var(--text-muted); }
+        .manager-panel { padding: 22px; margin-bottom: 28px; }
+        .manager-panel summary { cursor: pointer; font-size: 18px; font-weight: 800; }
+        .routine-form { margin-top: 20px; }
+        .form-grid { display: grid; grid-template-columns: 2fr 1.2fr 1fr .7fr; gap: 14px; }
+        .routine-form label { display: block; font-weight: 700; }
+        .routine-form input, .routine-form select, .routine-form textarea { width: 100%; margin-top: 6px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+        .routine-form .description { margin: 14px 0; }
+        .field-error { display: block; margin-top: 5px; color: #b42318; font-size: 12px; }
+        .btn { border: 0; border-radius: 8px; background: #1769d2; color: white; padding: 10px 15px; cursor: pointer; font-weight: 700; }
+        .btn-muted { background: #68758a; }
+        .btn-danger { background: #b42318; }
+        .routine-list, .history { padding: 22px; margin-top: 25px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 720px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .actions { display: flex; gap: 7px; }
+        .actions form { margin: 0; }
+        .actions .btn { padding: 7px 10px; font-size: 12px; }
+        .paused { color: var(--text-muted); font-weight: 700; }
+        @media (max-width: 850px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2">
+    <script src="/static/app/theme.js?v=20260724-3"></script>
+</head>
+<body>
+    <header class="topo"><h2>✅ Rotina</h2><span>{{ user.get_full_name|default:user.username }}</span></header>
+    {% include 'app/base_nav_snippet.html' %}
+
+    <main class="container">
+        {% if messages %}<ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+        <div class="page-intro">
+            <h1>Minha rotina</h1>
+            <p>Conclua as atividades previstas para o período atual.</p>
+        </div>
+
+        <section>
+            <h2>Pendentes agora</h2>
+            <div class="routine-grid">
+                {% for item in pendentes %}
+                <article class="routine-card card-detalhe">
+                    <div class="routine-meta">
+                        <span class="routine-tag">{{ item.get_periodicidade_display }}</span>
+                        {% if item.periodicidade == 'mensal' %}<span class="routine-tag">Dia {{ item.dia_mes }}</span>{% endif %}
+                    </div>
+                    <h3>{{ item.titulo }}</h3>
+                    {% if item.descricao %}<p class="routine-description">{{ item.descricao|linebreaksbr }}</p>{% endif %}
+                    <form method="post" action="{% url 'concluir_rotina' item.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'rotina' %}">
+                        <button type="submit" class="complete-button">✓ Marcar como concluída</button>
+                    </form>
+                </article>
+                {% empty %}
+                <div class="empty-state card-detalhe"><strong>Tudo certo!</strong><br>Não há rotinas pendentes neste momento.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if pode_gerenciar %}
+        <details class="manager-panel card-detalhe" {% if form.errors %}open{% endif %}>
+            <summary>＋ Criar rotina para um funcionário</summary>
+            <form method="post" class="routine-form">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_rotina" value="1">
+                <div class="form-grid">
+                    <label>{{ form.titulo.label }}{{ form.titulo }}{% for error in form.titulo.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                    <label>Funcionário{{ form.responsavel }}{% for error in form.responsavel.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                    <label>Frequência{{ form.periodicidade }}{% for error in form.periodicidade.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                    <label>Dia mensal{{ form.dia_mes }}{% for error in form.dia_mes.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</label>
+                </div>
+                <label class="description">{{ form.descricao.label }}{{ form.descricao }}</label>
+                <button type="submit" class="btn">Salvar rotina</button>
+            </form>
+        </details>
+
+        <section class="routine-list card-detalhe">
+            <h2>Rotinas configuradas</h2>
+            <table>
+                <thead><tr><th>Funcionário</th><th>Tarefa</th><th>Frequência</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody>
+                    {% for item in todas_rotinas %}
+                    <tr>
+                        <td>{{ item.responsavel.get_full_name|default:item.responsavel.username }}</td>
+                        <td><strong>{{ item.titulo }}</strong></td>
+                        <td>{{ item.get_periodicidade_display }}{% if item.periodicidade == 'mensal' %} · dia {{ item.dia_mes }}{% endif %}</td>
+                        <td>{% if item.ativa %}Ativa{% else %}<span class="paused">Pausada</span>{% endif %}</td>
+                        <td class="actions">
+                            <form method="post">{% csrf_token %}<input type="hidden" name="alternar_rotina" value="1"><input type="hidden" name="rotina_id" value="{{ item.id }}"><button class="btn btn-muted" type="submit">{% if item.ativa %}Pausar{% else %}Ativar{% endif %}</button></form>
+                            <form method="post">{% csrf_token %}<input type="hidden" name="remover_rotina" value="1"><input type="hidden" name="rotina_id" value="{{ item.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover esta rotina e seu histórico?')">Remover</button></form>
+                        </td>
+                    </tr>
+                    {% empty %}<tr><td colspan="5">Nenhuma rotina configurada.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+        <section class="history card-detalhe">
+            <h2>Minhas conclusões recentes</h2>
+            <table>
+                <thead><tr><th>Tarefa</th><th>Período</th><th>Concluída em</th></tr></thead>
+                <tbody>
+                    {% for conclusao in historico %}
+                    <tr><td>{{ conclusao.rotina.titulo }}</td><td>{{ conclusao.periodo_referencia|date:"d/m/Y" }}</td><td>{{ conclusao.concluido_em|date:"d/m/Y H:i" }}</td></tr>
+                    {% empty %}<tr><td colspan="3">Nenhuma conclusão registrada.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>
