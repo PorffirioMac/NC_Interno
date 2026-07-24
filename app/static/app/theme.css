@@ -1,15 +1,15 @@
 :root {
     color-scheme: light;
-    --bg: #edf3fb;
-    --surface: #f8fbff;
-    --surface-strong: #ffffff;
-    --surface-muted: #e6eef9;
-    --text: #17243a;
-    --text-muted: #607089;
-    --border: #cedbed;
+    --bg: #dce6f1;
+    --surface: #edf3f8;
+    --surface-strong: #f7f9fc;
+    --surface-muted: #d4e0ec;
+    --text: #1b2a40;
+    --text-muted: #5b6c82;
+    --border: #b9c9da;
     --primary: #1769d2;
-    --primary-soft: #dceaff;
-    --shadow: 0 8px 24px rgba(35, 66, 110, 0.10);
+    --primary-soft: #d4e5f7;
+    --shadow: 0 8px 24px rgba(35, 66, 110, 0.13);
 }
 
 html[data-theme="dark"] {
@@ -30,10 +30,11 @@ body {
     font-family: 'Segoe UI', Arial, sans-serif;
     background-color: var(--bg) !important;
     background-image:
-        radial-gradient(circle at 8% 5%, rgba(40, 123, 224, 0.10), transparent 27%),
-        linear-gradient(rgba(44, 96, 160, 0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(44, 96, 160, 0.025) 1px, transparent 1px) !important;
-    background-size: auto, 32px 32px, 32px 32px !important;
+        radial-gradient(circle at 8% 5%, rgba(40, 123, 224, 0.12), transparent 29%),
+        radial-gradient(circle at 94% 16%, rgba(102, 89, 216, 0.07), transparent 24%),
+        linear-gradient(rgba(44, 96, 160, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(44, 96, 160, 0.035) 1px, transparent 1px) !important;
+    background-size: auto, auto, 32px 32px, 32px 32px !important;
     color: var(--text) !important;
 }
 
@@ -59,7 +60,7 @@ html[data-theme="dark"] .topo {
 }
 
 .app-nav {
-    background: rgba(248, 251, 255, 0.94);
+    background: rgba(237, 243, 248, 0.96);
     padding: 12px 32px;
     display: flex;
     align-items: center;
@@ -110,6 +111,9 @@ html[data-theme="dark"] .app-nav { background: rgba(21, 18, 94, 0.94); }
 .table-wrap,
 .vazio,
 .login-card,
+.painel,
+.release,
+.item,
 .day-card,
 .month-calendar,
 .calendario,
@@ -123,6 +127,9 @@ table {
 
 .card,
 .card-detalhe,
+.painel,
+.release,
+.item,
 .day-card,
 .month-calendar,
 .login-card {
@@ -137,6 +144,45 @@ table {
 
 .dashboard-section { background: transparent !important; }
 .dashboard-section .card { background: var(--surface-strong) !important; }
+.user-performance {
+    background: var(--surface-strong) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: var(--shadow) !important;
+}
+.user-performance-head {
+    border-color: var(--border) !important;
+}
+.user-performance-head h3 {
+    color: var(--text) !important;
+}
+.user-performance-head small,
+.performance-intro,
+.performance-stat span {
+    color: var(--text-muted) !important;
+}
+.user-avatar {
+    background: var(--primary-soft) !important;
+    color: var(--primary) !important;
+}
+.performance-stat {
+    color: var(--text) !important;
+}
+a.performance-stat:hover {
+    background: var(--surface-muted) !important;
+}
+.performance-stat strong {
+    color: var(--primary) !important;
+}
+.performance-stat.today strong {
+    color: #d69e2e !important;
+}
+.performance-stat.late strong {
+    color: #ef6b64 !important;
+}
+.performance-stat.done strong {
+    color: #3fca72 !important;
+}
 .dashboard-section .card-link:hover .card,
 .card:hover {
     border-color: color-mix(in srgb, var(--primary) 55%, var(--border)) !important;
@@ -289,9 +335,9 @@ html[data-theme="dark"] .solicitacao .comentario strong {
     padding: 12px 14px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: var(--surface-soft);
+    background: var(--surface);
 }
-.attachment-item > div { min-width: 0; }
+.attachment-item > div { min-width: 0; flex: 1; }
 .attachment-item small { display: block; margin-top: 3px; }
 .attachment-icon { font-size: 21px; }
 .attachment-download {
@@ -299,6 +345,20 @@ html[data-theme="dark"] .solicitacao .comentario strong {
     font-weight: 600;
     overflow-wrap: anywhere;
 }
+.attachment-remove-form { margin: 0; flex: 0 0 auto; }
+.attachment-remove {
+    border: 1px solid color-mix(in srgb, #c62828 45%, var(--border));
+    border-radius: 8px;
+    background: color-mix(in srgb, #c62828 9%, var(--surface-strong));
+    color: #b42318;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.attachment-remove:hover { background: #c62828; color: #fff; }
+html[data-theme="dark"] .attachment-remove { color: #ffaaa5; }
 .attachment-empty { color: var(--text-muted); font-size: 13px; }
 @media (max-width: 700px) {
     .attachment-heading { display: block; }

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import FileResponse, JsonResponse
@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.db.models import Max, Q
+from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 from django.urls import reverse
 from .forms import ClienteForm, ErroConhecidoForm, ReleaseForm, SolicitacaoReleaseForm
@@ -274,7 +274,10 @@ def detalhes_erro_conhecido(request, erro_id):
 @login_required(login_url='/login/')
 def clientes(request):
     busca = request.GET.get('busca', '').strip()
-    lista = Cliente.objects.filter(ativo=True)
+    lista = Cliente.objects.filter(ativo=True).order_by(
+        F('codigo').asc(nulls_last=True),
+        'nome_fantasia',
+    )
     if busca:
         lista = lista.filter(
             Q(nome_fantasia__icontains=busca)
@@ -298,6 +301,11 @@ def criar_cliente(request):
 @login_required(login_url='/login/')
 def detalhes_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
+    if request.method == 'POST' and 'salvar_observacoes' in request.POST:
+        cliente.observacoes = request.POST.get('observacoes', '').strip()
+        cliente.save(update_fields=['observacoes', 'atualizado_em'])
+        messages.success(request, 'Observações do cliente atualizadas com sucesso!')
+        return redirect('detalhes_cliente', cliente_id=cliente.id)
     return render(request, 'app/detalhes_cliente.html', {'cliente': cliente})
 
 
@@ -370,6 +378,67 @@ def dashboard(request):
 
     if request.user.is_superuser:
         hoje = date.today()
+        inicio_semana = hoje - timedelta(days=hoje.weekday())
+        inicio_semana_dt = timezone.make_aware(
+            datetime.combine(inicio_semana, datetime.min.time())
+        )
+        desempenho_usuarios = User.objects.filter(is_active=True).annotate(
+            tickets_abertos=Count(
+                'tarefas',
+                filter=Q(tarefas__area='tickets', tarefas__encerrada=False),
+            ),
+            tickets_em_dia=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__encerrada=False,
+                    tarefas__prazo__gt=hoje,
+                ),
+            ),
+            tickets_hoje=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__encerrada=False,
+                    tarefas__prazo=hoje,
+                ),
+            ),
+            tickets_atrasados=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__encerrada=False,
+                    tarefas__prazo__lt=hoje,
+                ),
+            ),
+            tickets_sem_prazo=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__encerrada=False,
+                    tarefas__prazo__isnull=True,
+                ),
+            ),
+            movimentados_semana=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__atualizado_em__gte=inicio_semana_dt,
+                ),
+            ),
+            finalizados_semana=Count(
+                'tarefas',
+                filter=Q(
+                    tarefas__area='tickets',
+                    tarefas__encerrada=True,
+                    tarefas__encerrado_em__gte=inicio_semana_dt,
+                ),
+            ),
+            finalizados_total=Count(
+                'tarefas',
+                filter=Q(tarefas__area='tickets', tarefas__encerrada=True),
+            ),
+        ).order_by('first_name', 'username')
         total_tarefas = Task.objects.filter(encerrada=False, area='tickets').count()
         tarefas_ativas = Task.objects.filter(encerrada=False, area='tickets', prazo__gt=hoje).count()
         tarefas_para_hoje = Task.objects.filter(encerrada=False, area='tickets', prazo=hoje).count()
@@ -384,6 +453,8 @@ def dashboard(request):
             'comercial_counts': comercial_counts,
             'is_admin': True,
             'status_counts': status_counts,
+            'desempenho_usuarios': desempenho_usuarios,
+            'inicio_semana': inicio_semana,
         })
     else:
         hoje = date.today()
@@ -860,6 +931,32 @@ def baixar_anexo_ticket(request, anexo_id):
         filename=anexo.nome_original,
     )
 
+
+@require_POST
+@login_required(login_url='/login/')
+def remover_anexo_ticket(request, anexo_id):
+    anexo = get_object_or_404(
+        AnexoTicket.objects.select_related('tarefa'),
+        id=anexo_id,
+    )
+    tarefa = anexo.tarefa
+    if not (
+        tarefa.responsavel_id == request.user.id
+        or request.user.is_superuser
+    ):
+        messages.error(
+            request,
+            'Somente o responsável atual ou um administrador pode remover anexos.',
+        )
+        return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
+    nome = anexo.nome_original
+    anexo.arquivo.delete(save=False)
+    anexo.delete()
+    messages.success(request, f'Anexo “{nome}” removido com sucesso!')
+    return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+
+
 @login_required(login_url='/login/')
 def calendario(request):
     hoje = date.today()
@@ -912,7 +1009,8 @@ def calendario(request):
 def encerrar_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
     tarefa.encerrada = True
-    tarefa.save()
+    tarefa.encerrado_em = timezone.now()
+    tarefa.save(update_fields=['encerrada', 'encerrado_em', 'atualizado_em'])
     messages.success(request, 'Ticket encerrado com sucesso!')
     return redirect('tarefas_encerradas')
 
@@ -920,7 +1018,8 @@ def encerrar_tarefa(request, tarefa_id):
 def reabrir_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
     tarefa.encerrada = False
-    tarefa.save()
+    tarefa.encerrado_em = None
+    tarefa.save(update_fields=['encerrada', 'encerrado_em', 'atualizado_em'])
     messages.success(request, 'Ticket reaberto!')
     return redirect('tarefas')
 

@@ -30,8 +30,27 @@
         .boas-vindas h1 { font-size: 28px; color: #333; }
         .boas-vindas p { color: #666; margin-top: 8px; font-size: 16px; }
         .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+        .performance-intro { color: #667085; margin: -4px 0 18px; font-size: 14px; }
+        .user-performance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .user-performance { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); overflow: hidden; }
+        .user-performance-head { padding: 20px 22px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #edf0f4; }
+        .user-avatar { width: 42px; height: 42px; border-radius: 50%; background: #e8f0fe; color: #1a73e8; display: grid; place-items: center; font-weight: 700; font-size: 18px; }
+        .user-performance-head h3 { color: #253044; font-size: 17px; }
+        .user-performance-head small { color: #888; }
+        .performance-stats { display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px; }
+        .performance-stat { padding: 14px 8px; text-align: center; color: inherit; text-decoration: none; border-radius: 8px; }
+        a.performance-stat:hover { background: #f4f7fb; }
+        .performance-stat strong { display: block; font-size: 22px; color: #1a73e8; }
+        .performance-stat span { display: block; color: #697386; font-size: 11px; line-height: 1.25; margin-top: 4px; }
+        .performance-stat.today strong { color: #b7791f; }
+        .performance-stat.late strong { color: #d93025; }
+        .performance-stat.done strong { color: #188038; }
+        @media (max-width: 520px) {
+            .user-performance-grid { grid-template-columns: 1fr; }
+            .performance-stats { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2">
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-3">
     <script src="/static/app/theme.js?v=20260724-2"></script>
 </head>
 <body>
@@ -125,6 +144,51 @@
                         <div class="numero">{{ status_counts.pendente_netcontroll }}</div>
                     </div>
                 </a>
+            </div>
+        </section>
+        <section class="dashboard-section" aria-labelledby="desempenho-equipe">
+            <h2 id="desempenho-equipe">Desempenho individual da equipe</h2>
+            <p class="performance-intro">Resumo por responsável. A semana atual começou em {{ inicio_semana|date:'d/m/Y' }}.</p>
+            <div class="user-performance-grid">
+                {% for membro in desempenho_usuarios %}
+                <article class="user-performance">
+                    <header class="user-performance-head">
+                        <div class="user-avatar" aria-hidden="true">{{ membro.username|first|upper }}</div>
+                        <div>
+                            <h3>{{ membro.get_full_name|default:membro.username }}</h3>
+                            {% if membro.get_full_name %}<small>@{{ membro.username }}</small>{% endif %}
+                        </div>
+                    </header>
+                    <div class="performance-stats">
+                        <a class="performance-stat" href="{% url 'tarefas' %}?view=lista&amp;filtro=todas&amp;responsavel={{ membro.id }}">
+                            <strong>{{ membro.tickets_abertos }}</strong><span>Abertos vinculados</span>
+                        </a>
+                        <a class="performance-stat" href="{% url 'tarefas' %}?view=lista&amp;filtro=ativas&amp;responsavel={{ membro.id }}">
+                            <strong>{{ membro.tickets_em_dia }}</strong><span>Em dia</span>
+                        </a>
+                        <a class="performance-stat today" href="{% url 'tarefas' %}?view=lista&amp;filtro=hoje&amp;responsavel={{ membro.id }}">
+                            <strong>{{ membro.tickets_hoje }}</strong><span>Vencendo hoje</span>
+                        </a>
+                        <a class="performance-stat late" href="{% url 'tarefas' %}?view=lista&amp;filtro=atrasadas&amp;responsavel={{ membro.id }}">
+                            <strong>{{ membro.tickets_atrasados }}</strong><span>Em atraso</span>
+                        </a>
+                        <div class="performance-stat">
+                            <strong>{{ membro.tickets_sem_prazo }}</strong><span>Sem prazo</span>
+                        </div>
+                        <div class="performance-stat">
+                            <strong>{{ membro.movimentados_semana }}</strong><span>Movimentados na semana</span>
+                        </div>
+                        <div class="performance-stat done">
+                            <strong>{{ membro.finalizados_semana }}</strong><span>Finalizados na semana</span>
+                        </div>
+                        <div class="performance-stat done">
+                            <strong>{{ membro.finalizados_total }}</strong><span>Finalizados no total</span>
+                        </div>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="performance-intro">Nenhum usuário ativo encontrado.</p>
+                {% endfor %}
             </div>
         </section>
         <section class="dashboard-section">

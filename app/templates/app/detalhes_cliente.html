@@ -19,6 +19,7 @@
         .cancelamento textarea { width: 100%; min-height: 90px; padding: 11px; margin: 12px 0; border: 1px solid #ddd; border-radius: 8px; resize: vertical; }
         .cancelamento button { border: 0; cursor: pointer; }
         .alerta { padding: 12px 16px; border-radius: 8px; margin-bottom: 14px; background: #f8d7da; color: #842029; }
+        .alerta.success { background: #d9f4e3; color: #176b38; }
         .motivo { background: #fff3cd; color: #664d03; padding: 16px; border-radius: 8px; margin-top: 12px; }
         .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
         .cabecalho { display: flex; justify-content: space-between; gap: 15px; align-items: start; padding-bottom: 20px; border-bottom: 1px solid #eee; }
@@ -28,7 +29,12 @@
         .campo strong { font-size: 16px; }
         .observacoes { margin-top: 26px; padding-top: 22px; border-top: 1px solid #eee; }
         .observacoes h3 { margin-bottom: 12px; }
-        .observacoes div { line-height: 1.6; white-space: normal; }
+        .observacoes-texto { line-height: 1.6; margin-bottom: 14px; }
+        .observacoes details { margin-top: 12px; }
+        .observacoes summary { display: inline-block; cursor: pointer; list-style: none; }
+        .observacoes-form { margin-top: 14px; }
+        .observacoes-form textarea { width: 100%; min-height: 130px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; resize: vertical; font: inherit; line-height: 1.5; }
+        .observacoes-form button { border: 0; cursor: pointer; margin-top: 10px; }
         @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
     </style>
     <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2">
@@ -38,7 +44,7 @@
     <div class="topo"><h2>Ficha do Cliente</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
-        {% if messages %}{% for msg in messages %}<div class="alerta">{{ msg }}</div>{% endfor %}{% endif %}
+        {% if messages %}{% for msg in messages %}<div class="alerta {{ msg.tags }}">{{ msg }}</div>{% endfor %}{% endif %}
         <div class="acoes">
             <a class="voltar" href="{% url 'clientes' %}">← Voltar para Clientes</a>
             <a class="btn" href="{% url 'tarefas' %}?view=lista&amp;filtro=todas&amp;cliente={{ cliente.id }}">Ver tickets</a>
@@ -54,7 +60,18 @@
                 <div class="campo"><span>Proprietário</span><strong>{{ cliente.proprietario }}</strong></div>
                 <div class="campo"><span>Telefone</span><strong>{{ cliente.telefone }}</strong></div>
             </div>
-            <div class="observacoes"><h3>Observações</h3><div>{{ cliente.observacoes|default:'Nenhuma observação cadastrada.'|linebreaks }}</div></div>
+            <div class="observacoes">
+                <h3>Observações</h3>
+                <div class="observacoes-texto">{{ cliente.observacoes|default:'Nenhuma observação cadastrada.'|linebreaks }}</div>
+                <details>
+                    <summary class="btn">{% if cliente.observacoes %}Editar observações{% else %}+ Adicionar observação{% endif %}</summary>
+                    <form method="post" class="observacoes-form">
+                        {% csrf_token %}
+                        <textarea name="observacoes" aria-label="Observações do cliente" placeholder="Registre aqui informações importantes sobre o cliente...">{{ cliente.observacoes }}</textarea>
+                        <button type="submit" name="salvar_observacoes" value="1" class="btn">Salvar observações</button>
+                    </form>
+                </details>
+            </div>
             {% if cliente.ativo %}
             <div class="cancelamento">
                 <details>

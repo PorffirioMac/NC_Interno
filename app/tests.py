@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 import shutil
 import tempfile
 
@@ -9,7 +9,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import (
-    AnexoTicket, Comunicacao, ComunicacaoDestinatario, Notificacao, Release, Task,
+    AnexoTicket, Cliente, Comunicacao, ComunicacaoDestinatario, Notificacao,
+    Release, Task,
 )
 
 
@@ -73,6 +74,7 @@ class PainelNotificacoesTests(TestCase):
         notificacao.refresh_from_db()
         self.assertFalse(notificacao.lida)
 
+
     def test_responsavel_pode_editar_dados_do_ticket(self):
         self.client.force_login(self.operador)
         self.client.post(reverse('detalhes_tarefa', args=[self.tarefa.id]), {
@@ -119,11 +121,129 @@ class PainelNotificacoesTests(TestCase):
         self.assertNotContains(resposta, 'Editar dados do ticket')
 
 
+class DesempenhoDashboardTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin', 'admin@example.com', 'senha')
+        self.operador = User.objects.create_user(
+            'operador',
+            first_name='Maria',
+            last_name='Silva',
+            password='senha',
+        )
+        hoje = date.today()
+        Task.objects.create(
+            titulo='Em dia',
+            responsavel=self.operador,
+            prazo=hoje + timedelta(days=2),
+        )
+        Task.objects.create(
+            titulo='Vence hoje',
+            responsavel=self.operador,
+            prazo=hoje,
+        )
+        Task.objects.create(
+            titulo='Atrasado',
+            responsavel=self.operador,
+            prazo=hoje - timedelta(days=1),
+        )
+        Task.objects.create(
+            titulo='Sem prazo',
+            responsavel=self.operador,
+        )
+
+    def test_admin_visualiza_metricas_individuais(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.get(reverse('dashboard'))
+
+        self.assertContains(resposta, 'Desempenho individual da equipe')
+        self.assertContains(resposta, 'Maria Silva')
+        self.assertContains(resposta, 'Vencendo hoje')
+        membro = resposta.context['desempenho_usuarios'].get(pk=self.operador.pk)
+        self.assertEqual(membro.tickets_abertos, 4)
+        self.assertEqual(membro.tickets_em_dia, 1)
+        self.assertEqual(membro.tickets_hoje, 1)
+        self.assertEqual(membro.tickets_atrasados, 1)
+        self.assertEqual(membro.tickets_sem_prazo, 1)
+
+    def test_usuario_comum_nao_visualiza_desempenho_da_equipe(self):
+        self.client.force_login(self.operador)
+        resposta = self.client.get(reverse('dashboard'))
+
+        self.assertNotContains(resposta, 'Desempenho individual da equipe')
+
+    def test_encerramento_registra_data_e_reabertura_limpa(self):
+        tarefa = Task.objects.filter(responsavel=self.operador).first()
+        self.client.force_login(self.operador)
+
+        self.client.get(reverse('encerrar_tarefa', args=[tarefa.id]))
+        tarefa.refresh_from_db()
+        self.assertTrue(tarefa.encerrada)
+        self.assertIsNotNone(tarefa.encerrado_em)
+
+        self.client.get(reverse('reabrir_tarefa', args=[tarefa.id]))
+        tarefa.refresh_from_db()
+        self.assertFalse(tarefa.encerrada)
+        self.assertIsNone(tarefa.encerrado_em)
+
+
+class ClientesOrdenacaoTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user('usuario_clientes', password='senha')
+
+    def criar_cliente(self, codigo, nome):
+        return Cliente.objects.create(
+            codigo=codigo,
+            nome_fantasia=nome,
+            razao_social=f'{nome} LTDA',
+            cnpj=f'CNPJ {nome}',
+            proprietario='Proprietário',
+            telefone='(11) 99999-9999',
+        )
+
+    def test_lista_clientes_ordena_pela_id_digitavel(self):
+        self.criar_cliente('00120', 'Cliente 120')
+        self.criar_cliente('00003', 'Cliente 3')
+        self.criar_cliente('00045', 'Cliente 45')
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(reverse('clientes'))
+
+        codigos = [cliente.codigo for cliente in resposta.context['clientes']]
+        self.assertEqual(codigos, ['00003', '00045', '00120'])
+
+    def test_observacoes_podem_ser_atualizadas_apos_cadastro(self):
+        cliente = self.criar_cliente('00001', 'Cliente observado')
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(
+            reverse('detalhes_cliente', args=[cliente.id]),
+            {
+                'salvar_observacoes': '1',
+                'observacoes': 'Cliente prefere contato no período da tarde.',
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_cliente', args=[cliente.id]),
+        )
+        cliente.refresh_from_db()
+        self.assertEqual(
+            cliente.observacoes,
+            'Cliente prefere contato no período da tarde.',
+        )
+
+
 class AnexoTicketTests(TestCase):
     def setUp(self):
         self.media_root = tempfile.mkdtemp()
         self.override = override_settings(MEDIA_ROOT=self.media_root)
         self.override.enable()
+        self.admin = User.objects.create_superuser(
+            'admin_anexo',
+            'admin.anexo@example.com',
+            'senha',
+        )
         self.operador = User.objects.create_user('responsavel_anexo', password='senha')
         self.outro = User.objects.create_user('outro_anexo', password='senha')
         self.tarefa = Task.objects.create(
@@ -179,6 +299,44 @@ class AnexoTicketTests(TestCase):
         )
 
         self.assertFalse(AnexoTicket.objects.exists())
+
+    def test_responsavel_remove_registro_e_arquivo_fisico(self):
+        anexo = AnexoTicket.objects.create(
+            tarefa=self.tarefa,
+            arquivo=SimpleUploadedFile('remover.txt', b'conteudo'),
+            nome_original='remover.txt',
+            tamanho=8,
+            enviado_por=self.operador,
+        )
+        storage = anexo.arquivo.storage
+        nome_arquivo = anexo.arquivo.name
+        self.assertTrue(storage.exists(nome_arquivo))
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('remover_anexo_ticket', args=[anexo.id]),
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_tarefa', args=[self.tarefa.id]),
+        )
+        self.assertFalse(AnexoTicket.objects.filter(id=anexo.id).exists())
+        self.assertFalse(storage.exists(nome_arquivo))
+
+    def test_usuario_sem_permissao_nao_remove_anexo(self):
+        anexo = AnexoTicket.objects.create(
+            tarefa=self.tarefa,
+            arquivo=SimpleUploadedFile('protegido.txt', b'conteudo'),
+            nome_original='protegido.txt',
+            tamanho=8,
+            enviado_por=self.operador,
+        )
+        self.client.force_login(self.outro)
+
+        self.client.post(reverse('remover_anexo_ticket', args=[anexo.id]))
+
+        self.assertTrue(AnexoTicket.objects.filter(id=anexo.id).exists())
 
 
 class CaixaEntradaTests(TestCase):

@@ -14,6 +14,7 @@ urlpatterns = [
     path('tarefa/<int:tarefa_id>/gerar-implantacao/', views.gerar_ticket_implantacao, name='gerar_ticket_implantacao'),
     path('tarefa/<int:tarefa_id>/', views.detalhes_tarefa, name='detalhes_tarefa'),
     path('anexo/<int:anexo_id>/baixar/', views.baixar_anexo_ticket, name='baixar_anexo_ticket'),
+    path('anexo/<int:anexo_id>/remover/', views.remover_anexo_ticket, name='remover_anexo_ticket'),
     path('tarefa/<int:tarefa_id>/encerrar/', views.encerrar_tarefa, name='encerrar_tarefa'),
     path('tarefa/<int:tarefa_id>/reabrir/', views.reabrir_tarefa, name='reabrir_tarefa'),
     path('notificacoes/<int:notificacao_id>/lida/', views.marcar_notificacao_lida, name='marcar_notificacao_lida'),

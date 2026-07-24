@@ -228,6 +228,15 @@
                         <a class="attachment-download" href="{% url 'baixar_anexo_ticket' anexo.id %}">{{ anexo.nome_original }}</a>
                         <small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small>
                     </div>
+                    {% if pode_anexar %}
+                    <form method="post" action="{% url 'remover_anexo_ticket' anexo.id %}" class="attachment-remove-form">
+                        {% csrf_token %}
+                        <button type="submit" class="attachment-remove"
+                                onclick="return confirm('Remover definitivamente o anexo {{ anexo.nome_original|escapejs }}?')">
+                            Remover
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <p class="attachment-empty">Nenhum arquivo anexado a este ticket.</p>

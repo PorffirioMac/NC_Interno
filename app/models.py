@@ -183,6 +183,7 @@ class Task(models.Model):
         ('urgente', 'Urgente'),
     ], default='media')
     encerrada = models.BooleanField('Encerrada', default=False)
+    encerrado_em = models.DateTimeField('Encerrado em', null=True, blank=True)
     responsavel = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tarefas')
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, null=True, blank=True, related_name='tarefas')
     cliente = models.ForeignKey(
