@@ -329,6 +329,33 @@ class FinanceiroTests(TestCase):
         self.assertEqual(vencimento, date(2026, 2, 28))
 
 
+class ChecklistComercialTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            'usuario_comercial',
+            password='senha',
+        )
+        self.client.force_login(self.usuario)
+
+    def test_todas_as_fases_comerciais_recebem_checklist_padrao(self):
+        for fase, _ in Task.FASES_COMERCIAL:
+            with self.subTest(fase=fase):
+                resposta = self.client.post(reverse('criar_tarefa'), {
+                    'area': 'comercial',
+                    'titulo': f'Comercial {fase}',
+                    'descricao': '',
+                    'fase': fase,
+                    'status': 'pendente_netcamp',
+                    'prioridade': 'media',
+                    'prazo': '',
+                    'cliente': '',
+                })
+
+                self.assertRedirects(resposta, reverse('comercial'))
+                tarefa = Task.objects.get(titulo=f'Comercial {fase}')
+                self.assertEqual(tarefa.checklists.count(), 10)
+
+
 class RotinaTests(TestCase):
     def setUp(self):
         self.gerente = User.objects.create_user('gerente_rotina', password='senha')

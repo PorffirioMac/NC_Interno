@@ -821,9 +821,9 @@ def criar_tarefa(request):
             ],
         }
 
-        fase = tarefa.fase
-        if fase in checklists_padrao:
-            for descricao in checklists_padrao[fase]:
+        checklist_key = 'comercial' if tarefa.area == 'comercial' else tarefa.fase
+        if checklist_key in checklists_padrao:
+            for descricao in checklists_padrao[checklist_key]:
                 ChecklistItem.objects.create(
                     task=tarefa,
                     descricao=descricao,

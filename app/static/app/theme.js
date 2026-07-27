@@ -90,8 +90,8 @@
                     }
                     function iniciar() {
                         const agora = contexto.currentTime + 0.03;
-                        criarNota(659.25, agora, 0.22, 0.055);
-                        criarNota(783.99, agora + 0.15, 0.30, 0.045);
+                        criarNota(659.25, agora, 0.22, 0.12);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.10);
                         window.setTimeout(function () {
                             contexto.close().finally(resolve);
                         }, 650);
