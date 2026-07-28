@@ -38,6 +38,21 @@ def painel_notificacoes(context):
             prazo__lte=hoje,
         ).select_related('cliente').order_by('prazo', 'titulo')
     )
+    tickets_plantao = list(
+        Task.objects.filter(
+            responsavel=request.user,
+            encerrada=False,
+            area='tickets',
+            fase='pendencias_plantao',
+        ).select_related('cliente').order_by('-atualizado_em', 'titulo')
+    )
+    marcador_plantao = max(
+        (
+            int(ticket.atualizado_em.timestamp() * 1000)
+            for ticket in tickets_plantao
+        ),
+        default=0,
+    )
     notificacoes = list(
         Notificacao.objects.filter(destinatario=request.user)
         .select_related('ator', 'tarefa')[:30]
@@ -82,6 +97,7 @@ def painel_notificacoes(context):
     return {
         'request': request,
         'painel_prazos': prazos,
+        'painel_tickets_plantao': tickets_plantao,
         'painel_notificacoes': notificacoes,
         'painel_nao_lidas': nao_lidas,
         'painel_comunicacoes': comunicacoes,
@@ -90,14 +106,16 @@ def painel_notificacoes(context):
         'painel_total_alertas': (
             len(prazos) + nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
+            + len(tickets_plantao)
         ),
         'painel_total_novas': (
             nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
+            + len(tickets_plantao)
         ),
         'painel_assinatura_novas': (
             f'{ultima_notificacao_id}:{ultima_comunicacao_id}:'
-            f'{ultima_despesa_id}:{marcador_rotina}'
+            f'{ultima_despesa_id}:{marcador_rotina}:{marcador_plantao}'
         ),
         'painel_hoje': hoje,
     }

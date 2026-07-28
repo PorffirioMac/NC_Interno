@@ -14,7 +14,7 @@
     <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
     <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
     <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
-    <span class="app-version" style="margin-left:auto;">Versão 1.2.0</span>
+    <span class="app-version" style="margin-left:auto;">Versão 1.3.0</span>
     <button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema">🌙</button>
 </nav>
 {% painel_notificacoes %}

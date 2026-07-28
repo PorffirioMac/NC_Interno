@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -122,18 +123,34 @@ def status_notificacoes(request):
         ),
         default=0,
     )
+    tickets_plantao = Task.objects.filter(
+        responsavel=request.user,
+        encerrada=False,
+        area='tickets',
+        fase='pendencias_plantao',
+    )
+    resumo_plantao = tickets_plantao.aggregate(
+        total=Count('id'),
+        ultima_atualizacao=Max('atualizado_em'),
+    )
+    marcador_plantao = (
+        int(resumo_plantao['ultima_atualizacao'].timestamp() * 1000)
+        if resumo_plantao['ultima_atualizacao'] else 0
+    )
     resposta = JsonResponse({
         'total': (
             resumo_notificacoes['total']
             + resumo_comunicacoes['total']
             + total_despesas
             + len(rotinas_pendentes)
+            + resumo_plantao['total']
         ),
         'assinatura': (
             f"{resumo_notificacoes['ultima'] or 0}:"
             f"{resumo_comunicacoes['ultima'] or 0}:"
             f"{ultima_despesa}:"
-            f"{marcador_rotina}"
+            f"{marcador_rotina}:"
+            f"{marcador_plantao}"
         ),
     })
     resposta['Cache-Control'] = 'no-store'
@@ -715,7 +732,40 @@ def gerar_ticket_implantacao(request, tarefa_id):
         ChecklistItem(task=implantacao, descricao=descricao, criado_por=request.user)
         for descricao in checklist_implantacao
     ])
-    messages.success(request, 'Ticket técnico de implantação gerado com sucesso!')
+
+    for comentario in comercial.comentarios.all():
+        comentario_copiado = Comment.objects.create(
+            task=implantacao,
+            autor=comentario.autor,
+            texto=comentario.texto,
+        )
+        Comment.objects.filter(pk=comentario_copiado.pk).update(
+            criado_em=comentario.criado_em,
+        )
+
+    for anexo in comercial.anexos.all():
+        with anexo.arquivo.open('rb') as arquivo_origem:
+            conteudo = ContentFile(arquivo_origem.read())
+        anexo_copiado = AnexoTicket(
+            tarefa=implantacao,
+            nome_original=anexo.nome_original,
+            tamanho=anexo.tamanho,
+            enviado_por=anexo.enviado_por,
+        )
+        anexo_copiado.arquivo.save(
+            anexo.nome_original,
+            conteudo,
+            save=False,
+        )
+        anexo_copiado.save()
+        AnexoTicket.objects.filter(pk=anexo_copiado.pk).update(
+            criado_em=anexo.criado_em,
+        )
+
+    messages.success(
+        request,
+        'Ticket técnico de implantação gerado com comentários e anexos!',
+    )
     return redirect('detalhes_tarefa', tarefa_id=implantacao.id)
 
 @login_required(login_url='/login/')

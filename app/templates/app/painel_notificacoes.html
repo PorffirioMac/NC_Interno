@@ -19,6 +19,23 @@
             <button type="button" class="notification-close" id="notificationClose"
                     title="Minimizar" aria-label="Minimizar central">×</button>
         </div>
+        {% if painel_tickets_plantao %}
+        <section class="notification-section">
+            <div class="notification-section-title">
+                <h3>🛟 Plantão</h3>
+                <a class="notification-inbox-link" href="{% url 'tarefas' %}">Ver tickets</a>
+            </div>
+            {% for ticket_plantao in painel_tickets_plantao %}
+            <a class="notification-item on-call" href="{% url 'detalhes_tarefa' ticket_plantao.id %}">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ ticket_plantao.titulo }}</strong>
+                    <small>{% if ticket_plantao.cliente %}{{ ticket_plantao.cliente.nome_fantasia }} · {% endif %}{{ ticket_plantao.get_prioridade_display }}</small>
+                </span>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
         {% if painel_rotinas_pendentes %}
         <section class="notification-section">
             <div class="notification-section-title">

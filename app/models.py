@@ -136,6 +136,7 @@ class Task(models.Model):
         ('implantacao', 'Implantação'),
         ('pendencias_pos_venda', 'Pendências Pós-Venda'),
         ('tickets_abertos', 'Tickets Abertos'),
+        ('pendencias_plantao', 'Pendências Plantão'),
         ('tarefas_internas', 'Tarefas Internas'),
         ('diversos', 'Diversos'),
     ]

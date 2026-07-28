@@ -39,7 +39,7 @@
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
     <link rel="stylesheet" href="/static/app/theme.css?v=20260724-4">
-    <script src="/static/app/theme.js?v=20260727-1"></script>
+    <script src="/static/app/theme.js?v=20260728-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -73,60 +73,6 @@
                 <span class="tag">🏢 {{ tarefa.cliente.nome_fantasia }}</span>
                 {% endif %}
             </div>
-            {% if pode_editar %}
-            <details class="secao ticket-edit-panel">
-                <summary>✏️ Editar dados do ticket</summary>
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="editar_ticket" value="1">
-                    <label>Título
-                        <input type="text" name="titulo" value="{{ tarefa.titulo }}" maxlength="300" required>
-                    </label>
-                    <label>Descrição
-                        <textarea name="descricao">{{ tarefa.descricao }}</textarea>
-                    </label>
-                    <div class="grid-2">
-                        <label>Coluna
-                            <select name="fase" required>
-                                {% for valor, nome in fases %}
-                                <option value="{{ valor }}" {% if tarefa.fase == valor %}selected{% endif %}>{{ nome }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                        <label>Status
-                            <select name="status" required>
-                                {% for valor, nome in status_choices %}
-                                <option value="{{ valor }}" {% if tarefa.status == valor %}selected{% endif %}>{{ nome }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                        <label>Cliente
-                            <select name="cliente">
-                                <option value="">— Sem cliente vinculado —</option>
-                                {% for cliente in clientes %}
-                                <option value="{{ cliente.id }}" {% if tarefa.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                        <label>Prazo de conclusão
-                            <input type="date" name="prazo" value="{{ tarefa.prazo|date:'Y-m-d' }}">
-                        </label>
-                        <label>Prioridade
-                            <select name="prioridade" required>
-                                {% for valor, nome in prioridades %}
-                                <option value="{{ valor }}" {% if tarefa.prioridade == valor %}selected{% endif %}>{{ nome }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                    </div>
-                    <button type="submit" class="btn">Salvar alterações</button>
-                </form>
-            </details>
-            {% elif tarefa.responsavel %}
-            <p class="edit-permission-note">Somente {{ tarefa.responsavel.username }}, responsável atual, pode editar os dados deste ticket.</p>
-            {% else %}
-            <p class="edit-permission-note">Atribua um responsável para habilitar a edição dos dados deste ticket.</p>
-            {% endif %}
             {% if legacy_field_controls %}
             <div class="secao">
                 <h3>🏢 Cliente vinculado</h3>
@@ -140,21 +86,6 @@
                         {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-small">Salvar Cliente</button>
-                </form>
-            </div>
-            {% endif %}
-            {% if is_admin %}
-            <div class="secao">
-                <h3>👤 Atribuir Responsável</h3>
-                <form method="post">
-                    {% csrf_token %}
-                    <select name="responsavel">
-                        <option value="">— Sem responsável —</option>
-                        {% for user in users %}
-                        <option value="{{ user.id }}" {% if tarefa.responsavel == user %}selected{% endif %}>{{ user.username }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-small">Salvar</button>
                 </form>
             </div>
             {% endif %}
@@ -203,6 +134,56 @@
             </div>
         </div>
 
+        <div class="card-detalhe">
+            <h3>💬 Comentários</h3>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="comentario" value="1">
+                <textarea name="texto" placeholder="Escreva um comentário..." required></textarea>
+                <button type="submit" class="btn btn-small">Comentar</button>
+            </form>
+            <div style="margin-top: 16px;">
+                {% for comentario in tarefa.comentarios.all %}
+                <div class="comentario">
+                    <div>
+                        <span class="autor">{{ comentario.autor.username }}</span>
+                        <span class="data">{{ comentario.criado_em|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="texto">{{ comentario.texto|linebreaks }}</div>
+                </div>
+                {% empty %}
+                <p style="color: #999; font-size: 13px;">Nenhum comentário ainda</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card-detalhe">
+            <h3>📝 Checklist</h3>
+            <form method="post" style="display: flex; gap: 8px;">
+                {% csrf_token %}
+                <input type="hidden" name="checklist" value="1">
+                <input type="text" name="descricao" placeholder="Novo item..." required style="flex: 1; margin-bottom: 0;">
+                <button type="submit" class="btn btn-small">+</button>
+            </form>
+            {% for item in tarefa.checklists.all %}
+            <div class="checklist-item">
+                <form method="post" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="concluir_check" value="1">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <button type="submit" style="background: none; border: none; font-size: 18px; cursor: pointer;">
+                        {{ item.concluido|yesno:"✅,⬜" }}
+                    </button>
+                </form>
+                <span style="{% if item.concluido %}text-decoration: line-through; color: #999;{% endif %}">
+                    {{ item.descricao }}
+                </span>
+            </div>
+            {% empty %}
+            <p style="color: #999; font-size: 13px; margin-top: 12px;">Nenhum item no checklist</p>
+            {% endfor %}
+        </div>
+
         <div class="card-detalhe ticket-attachments">
             <div class="attachment-heading">
                 <div>
@@ -244,57 +225,80 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card-detalhe">
-                <h3>📝 Checklist</h3>
-                <form method="post" style="display: flex; gap: 8px;">
-                    {% csrf_token %}
-                    <input type="hidden" name="checklist" value="1">
-                    <input type="text" name="descricao" placeholder="Novo item..." required style="flex: 1; margin-bottom: 0;">
-                    <button type="submit" class="btn btn-small">+</button>
-                </form>
-                {% for item in tarefa.checklists.all %}
-                <div class="checklist-item">
-                    <form method="post" style="margin: 0;">
-                        {% csrf_token %}
-                        <input type="hidden" name="concluir_check" value="1">
-                        <input type="hidden" name="item_id" value="{{ item.id }}">
-                        <button type="submit" style="background: none; border: none; font-size: 18px; cursor: pointer;">
-                            {{ item.concluido|yesno:"✅,⬜" }}
-                        </button>
-                    </form>
-                    <span style="{% if item.concluido %}text-decoration: line-through; color: #999;{% endif %}">
-                        {{ item.descricao }}
-                    </span>
-                </div>
-                {% empty %}
-                <p style="color: #999; font-size: 13px; margin-top: 12px;">Nenhum item no checklist</p>
-                {% endfor %}
-            </div>
-
-            <div class="card-detalhe">
-                <h3>💬 Comentários</h3>
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="comentario" value="1">
-                    <textarea name="texto" placeholder="Escreva um comentário..." required></textarea>
-                    <button type="submit" class="btn btn-small">Comentar</button>
-                </form>
-                <div style="margin-top: 16px;">
-                    {% for comentario in tarefa.comentarios.all %}
-                    <div class="comentario">
-                        <div>
-                            <span class="autor">{{ comentario.autor.username }}</span>
-                            <span class="data">{{ comentario.criado_em|date:"d/m/Y H:i" }}</span>
-                        </div>
-                        <div class="texto">{{ comentario.texto|linebreaks }}</div>
-                    </div>
-                    {% empty %}
-                    <p style="color: #999; font-size: 13px;">Nenhum comentário ainda</p>
+        {% if is_admin %}
+        <div class="card-detalhe">
+            <h3>👤 Atribuir Responsável</h3>
+            <form method="post">
+                {% csrf_token %}
+                <select name="responsavel">
+                    <option value="">— Sem responsável —</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if tarefa.responsavel == user %}selected{% endif %}>{{ user.username }}</option>
                     {% endfor %}
-                </div>
-            </div>
+                </select>
+                <button type="submit" class="btn btn-small">Salvar responsável</button>
+            </form>
         </div>
+        {% endif %}
+
+        {% if pode_editar %}
+        <div class="card-detalhe">
+            <h3>✏️ Editar dados do ticket</h3>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="editar_ticket" value="1">
+                <label>Título
+                    <input type="text" name="titulo" value="{{ tarefa.titulo }}" maxlength="300" required>
+                </label>
+                <label>Descrição
+                    <textarea name="descricao">{{ tarefa.descricao }}</textarea>
+                </label>
+                <div class="grid-2">
+                    <label>Coluna
+                        <select name="fase" required>
+                            {% for valor, nome in fases %}
+                            <option value="{{ valor }}" {% if tarefa.fase == valor %}selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>Status
+                        <select name="status" required>
+                            {% for valor, nome in status_choices %}
+                            <option value="{{ valor }}" {% if tarefa.status == valor %}selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>Cliente
+                        <select name="cliente">
+                            <option value="">— Sem cliente vinculado —</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}" {% if tarefa.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>Prazo de conclusão
+                        <input type="date" name="prazo" value="{{ tarefa.prazo|date:'Y-m-d' }}">
+                    </label>
+                    <label>Prioridade
+                        <select name="prioridade" required>
+                            {% for valor, nome in prioridades %}
+                            <option value="{{ valor }}" {% if tarefa.prioridade == valor %}selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+                <button type="submit" class="btn">Salvar alterações</button>
+            </form>
+        </div>
+        {% elif tarefa.responsavel %}
+        <div class="card-detalhe">
+            <p class="edit-permission-note">Somente {{ tarefa.responsavel.username }}, responsável atual, pode editar os dados deste ticket.</p>
+        </div>
+        {% else %}
+        <div class="card-detalhe">
+            <p class="edit-permission-note">Atribua um responsável para habilitar a edição dos dados deste ticket.</p>
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>

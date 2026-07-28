@@ -575,6 +575,8 @@ html[data-theme="dark"] .attachment-remove { color: #ffaaa5; }
 .notification-item.today .notification-dot { background: #e6a126; box-shadow: 0 0 0 3px rgba(230,161,38,.13); }
 .notification-item.finance { background: color-mix(in srgb, #2e9b63 10%, var(--surface)); }
 .notification-item.finance .notification-dot { background: #2e9b63; box-shadow: 0 0 0 3px rgba(46,155,99,.15); }
+.notification-item.on-call { background: color-mix(in srgb, #7657d5 10%, var(--surface)); }
+.notification-item.on-call .notification-dot { background: #7657d5; box-shadow: 0 0 0 3px rgba(118,87,213,.15); }
 .notification-item.routine { background: color-mix(in srgb, #218838 9%, var(--surface)); }
 .notification-item.routine .notification-dot { background: #218838; box-shadow: 0 0 0 3px rgba(33,136,56,.14); }
 .routine-popup-form { margin: 0 0 0 auto; flex: 0 0 auto; }

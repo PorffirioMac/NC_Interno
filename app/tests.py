@@ -11,7 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import (
-    AnexoTicket, Cliente, Comunicacao, ComunicacaoDestinatario,
+    AnexoTicket, Cliente, Comment, Comunicacao, ComunicacaoDestinatario,
     DespesaFinanceira, Notificacao, Release, Rotina, RotinaConclusao, Task,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
@@ -104,7 +104,7 @@ class PainelNotificacoesTests(TestCase):
         self.assertEqual(resposta.json()['total'], 2)
         self.assertEqual(
             resposta.json()['assinatura'],
-            f'{notificacao.id}:{entrega.id}:0:0',
+            f'{notificacao.id}:{entrega.id}:0:0:0',
         )
         self.assertEqual(resposta['Cache-Control'], 'no-store')
 
@@ -327,6 +327,72 @@ class FinanceiroTests(TestCase):
         vencimento = _data_vencimento_mensal(despesa, 2026, 2)
 
         self.assertEqual(vencimento, date(2026, 2, 28))
+
+
+class PendenciasPlantaoTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            'usuario_plantao',
+            password='senha',
+        )
+        self.tarefa = Task.objects.create(
+            titulo='Pendência acolhida no plantão',
+            responsavel=self.usuario,
+            area='tickets',
+            fase='tickets_abertos',
+        )
+        self.client.force_login(self.usuario)
+
+    def test_coluna_aparece_no_kanban_de_tickets(self):
+        resposta = self.client.get(reverse('tarefas'))
+
+        self.assertContains(resposta, 'Pendências Plantão')
+
+    def test_ticket_tecnico_pode_ser_movido_para_pendencias_plantao(self):
+        resposta = self.client.post(
+            reverse('mover_tarefa', args=[self.tarefa.id]),
+            {'fase': 'pendencias_plantao'},
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.tarefa.refresh_from_db()
+        self.assertEqual(self.tarefa.fase, 'pendencias_plantao')
+        self.assertEqual(resposta.json()['fase_nome'], 'Pendências Plantão')
+
+    def test_popup_mostra_somente_ticket_aberto_na_coluna_plantao(self):
+        self.tarefa.fase = 'pendencias_plantao'
+        self.tarefa.save()
+
+        dashboard = self.client.get(reverse('dashboard'))
+
+        self.assertContains(dashboard, '🛟 Plantão')
+        self.assertContains(dashboard, self.tarefa.titulo)
+
+        self.client.post(
+            reverse('mover_tarefa', args=[self.tarefa.id]),
+            {'fase': 'tarefas_internas'},
+        )
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertNotContains(dashboard, self.tarefa.titulo)
+
+        self.tarefa.fase = 'pendencias_plantao'
+        self.tarefa.encerrada = True
+        self.tarefa.save()
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertNotContains(dashboard, self.tarefa.titulo)
+
+    def test_popup_nao_mostra_plantao_de_outro_usuario(self):
+        outro = User.objects.create_user('outro_plantao', password='senha')
+        Task.objects.create(
+            titulo='Pendência de outro funcionário',
+            responsavel=outro,
+            area='tickets',
+            fase='pendencias_plantao',
+        )
+
+        dashboard = self.client.get(reverse('dashboard'))
+
+        self.assertNotContains(dashboard, 'Pendência de outro funcionário')
 
 
 class ChecklistComercialTests(TestCase):
@@ -569,6 +635,65 @@ class AnexoTicketTests(TestCase):
         self.client.post(reverse('remover_anexo_ticket', args=[anexo.id]))
 
         self.assertTrue(AnexoTicket.objects.filter(id=anexo.id).exists())
+
+
+class GerarTicketImplantacaoTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.operador = User.objects.create_user(
+            'comercial_implantacao',
+            password='senha',
+        )
+        self.comercial = Task.objects.create(
+            titulo='Nova implantação',
+            descricao='Dados da venda',
+            area='comercial',
+            fase='aprovado_aguardando_implantacao',
+            responsavel=self.operador,
+        )
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_comentarios_e_anexos_sao_copiados_para_ticket_tecnico(self):
+        comentario = Comment.objects.create(
+            task=self.comercial,
+            autor=self.operador,
+            texto='Cliente enviou os dados necessários.',
+        )
+        anexo = AnexoTicket.objects.create(
+            tarefa=self.comercial,
+            arquivo=SimpleUploadedFile('contrato.pdf', b'conteudo do contrato'),
+            nome_original='contrato.pdf',
+            tamanho=20,
+            enviado_por=self.operador,
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('gerar_ticket_implantacao', args=[self.comercial.id]),
+        )
+
+        implantacao = Task.objects.get(origem_comercial=self.comercial)
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_tarefa', args=[implantacao.id]),
+        )
+        comentario_copiado = implantacao.comentarios.get()
+        self.assertEqual(comentario_copiado.texto, comentario.texto)
+        self.assertEqual(comentario_copiado.autor, comentario.autor)
+        self.assertEqual(comentario_copiado.criado_em, comentario.criado_em)
+
+        anexo_copiado = implantacao.anexos.get()
+        self.assertEqual(anexo_copiado.nome_original, anexo.nome_original)
+        self.assertEqual(anexo_copiado.enviado_por, anexo.enviado_por)
+        self.assertEqual(anexo_copiado.criado_em, anexo.criado_em)
+        self.assertNotEqual(anexo_copiado.arquivo.name, anexo.arquivo.name)
+        with anexo_copiado.arquivo.open('rb') as arquivo:
+            self.assertEqual(arquivo.read(), b'conteudo do contrato')
 
 
 class CaixaEntradaTests(TestCase):
