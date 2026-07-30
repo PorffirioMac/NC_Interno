@@ -1,7 +1,11 @@
-{% load notificacoes_tags %}
+{% load static notificacoes_tags %}
 {% caixa_nao_lidas as total_caixa_nao_lidas %}
 {% with pagina=request.resolver_match.url_name %}
 <nav class="app-nav" aria-label="Menu principal">
+    <a class="app-brand" href="{% url 'dashboard' %}" aria-label="Ir para o Dashboard" title="NetCamp">
+        <img class="app-brand-logo logo-light" src="{% static 'app/images/netcamp-logo-blue.png' %}" alt="NetCamp">
+        <img class="app-brand-logo logo-dark" src="{% static 'app/images/netcamp-logo-white.png' %}" alt="">
+    </a>
     <a href="{% url 'dashboard' %}" {% if pagina == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
     <a href="{% url 'tarefas' %}" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' %}class="active"{% endif %}>📋 Tickets</a>
     <a href="{% url 'calendario' %}" {% if pagina == 'calendario' %}class="active"{% endif %}>📅 Calendário</a>
@@ -10,11 +14,11 @@
     {% endif %}
     <a href="{% url 'rotina' %}" {% if pagina == 'rotina' %}class="active"{% endif %}>✅ Rotina</a>
     <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
-    <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
+    <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
     <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
     <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
     <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
-    <span class="app-version" style="margin-left:auto;">Versão 1.3.0</span>
+    <span class="app-version" style="margin-left:auto;">Versão 1.3.1</span>
     <button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema">🌙</button>
 </nav>
 {% painel_notificacoes %}

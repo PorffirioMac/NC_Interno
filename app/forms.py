@@ -80,12 +80,18 @@ class ErroConhecidoForm(forms.ModelForm):
             'palavra_chave',
             'modulo',
             'descricao',
+            'corrigido',
+            'medida_corretiva',
             'versao_observada',
             'clientes',
             'ticket_netcontroll',
         ]
         widgets = {
             'descricao': forms.Textarea(attrs={'rows': 7}),
+            'medida_corretiva': forms.Textarea(attrs={
+                'rows': 5,
+                'placeholder': 'Descreva o procedimento a aplicar quando o erro ocorrer.',
+            }),
             'clientes': forms.CheckboxSelectMultiple(),
         }
 

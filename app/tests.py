@@ -12,7 +12,8 @@ from django.urls import reverse
 
 from .models import (
     AnexoTicket, Cliente, Comment, Comunicacao, ComunicacaoDestinatario,
-    DespesaFinanceira, Notificacao, Release, Rotina, RotinaConclusao, Task,
+    DespesaFinanceira, ErroConhecido, Notificacao, Release, Rotina,
+    RotinaConclusao, Task,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 from .views import _data_vencimento_mensal
@@ -635,6 +636,76 @@ class AnexoTicketTests(TestCase):
         self.client.post(reverse('remover_anexo_ticket', args=[anexo.id]))
 
         self.assertTrue(AnexoTicket.objects.filter(id=anexo.id).exists())
+
+
+class ErroConhecidoCorrecaoTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            'usuario_erros',
+            password='senha',
+        )
+        self.cliente_cadastrado = Cliente.objects.create(
+            codigo='00001',
+            nome_fantasia='Cliente Teste',
+            razao_social='Cliente Teste Ltda.',
+            cnpj='00.000.000/0001-00',
+            proprietario='Responsável',
+            telefone='(11) 99999-9999',
+        )
+        self.erro = ErroConhecido.objects.create(
+            palavra_chave='Falha na emissão',
+            modulo='nfce',
+            descricao='Documento não é emitido.',
+            versao_observada='1.0',
+            ticket_netcontroll='NC-123',
+        )
+        self.erro.clientes.add(self.cliente_cadastrado)
+
+    def test_edicao_adiciona_flag_e_medida_corretiva(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(
+            reverse('editar_erro_conhecido', args=[self.erro.id]),
+            {
+                'palavra_chave': self.erro.palavra_chave,
+                'modulo': self.erro.modulo,
+                'descricao': self.erro.descricao,
+                'corrigido': 'on',
+                'medida_corretiva': 'Reiniciar o concentrador e reenviar.',
+                'versao_observada': self.erro.versao_observada,
+                'clientes': [self.cliente_cadastrado.id],
+                'ticket_netcontroll': self.erro.ticket_netcontroll,
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_erro_conhecido', args=[self.erro.id]),
+        )
+        self.erro.refresh_from_db()
+        self.assertTrue(self.erro.corrigido)
+        self.assertEqual(
+            self.erro.medida_corretiva,
+            'Reiniciar o concentrador e reenviar.',
+        )
+
+        detalhes = self.client.get(
+            reverse('detalhes_erro_conhecido', args=[self.erro.id]),
+        )
+        self.assertContains(detalhes, 'Corrigido: Sim')
+        self.assertContains(detalhes, 'Reiniciar o concentrador e reenviar.')
+
+    def test_medida_corretiva_participa_da_busca(self):
+        self.erro.medida_corretiva = 'Procedimento exclusivo concentrador'
+        self.erro.save()
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(
+            reverse('erros_conhecidos'),
+            {'busca': 'exclusivo concentrador'},
+        )
+
+        self.assertContains(resposta, self.erro.palavra_chave)
 
 
 class GerarTicketImplantacaoTests(TestCase):

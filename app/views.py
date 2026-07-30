@@ -325,6 +325,7 @@ def erros_conhecidos(request):
         lista = lista.filter(
             Q(palavra_chave__icontains=busca)
             | Q(descricao__icontains=busca)
+            | Q(medida_corretiva__icontains=busca)
             | Q(versao_observada__icontains=busca)
             | Q(ticket_netcontroll__icontains=busca)
             | Q(clientes__nome_fantasia__icontains=busca)
@@ -339,7 +340,26 @@ def criar_erro_conhecido(request):
         erro = form.save()
         messages.success(request, 'Erro conhecido cadastrado com sucesso!')
         return redirect('detalhes_erro_conhecido', erro_id=erro.id)
-    return render(request, 'app/form_erro_conhecido.html', {'form': form})
+    return render(request, 'app/form_erro_conhecido.html', {
+        'form': form,
+        'titulo_pagina': 'Novo Erro Conhecido',
+        'texto_botao': 'Salvar Erro Conhecido',
+    })
+
+
+@login_required(login_url='/login/')
+def editar_erro_conhecido(request, erro_id):
+    erro = get_object_or_404(ErroConhecido, id=erro_id)
+    form = ErroConhecidoForm(request.POST or None, instance=erro)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Erro conhecido atualizado com sucesso!')
+        return redirect('detalhes_erro_conhecido', erro_id=erro.id)
+    return render(request, 'app/form_erro_conhecido.html', {
+        'form': form,
+        'titulo_pagina': 'Editar Erro Conhecido',
+        'texto_botao': 'Salvar Alterações',
+    })
 
 
 @login_required(login_url='/login/')

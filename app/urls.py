@@ -33,6 +33,7 @@ urlpatterns = [
     path('clientes-inativos/', views.clientes_inativos, name='clientes_inativos'),
     path('erros-conhecidos/', views.erros_conhecidos, name='erros_conhecidos'),
     path('erro-conhecido/criar/', views.criar_erro_conhecido, name='criar_erro_conhecido'),
+    path('erro-conhecido/<int:erro_id>/editar/', views.editar_erro_conhecido, name='editar_erro_conhecido'),
     path('erro-conhecido/<int:erro_id>/', views.detalhes_erro_conhecido, name='detalhes_erro_conhecido'),
     path('releases/', views.releases, name='releases'),
     path('caixa-de-entrada/', views.caixa_entrada, name='caixa_entrada'),

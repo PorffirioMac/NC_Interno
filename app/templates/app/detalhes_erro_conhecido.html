@@ -11,24 +11,30 @@
         .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
         .cabecalho { display: flex; justify-content: space-between; gap: 15px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .tag { background: #e8f0fe; color: #1a73e8; padding: 7px 12px; border-radius: 20px; height: fit-content; }
+        .cabecalho-acoes { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+        .status-correcao { padding: 7px 12px; border-radius: 20px; font-weight: 700; }
+        .status-correcao.sim { background: #d1fae5; color: #067647; }
+        .status-correcao.nao { background: #fff1cc; color: #8a5700; }
+        .editar { background: #1a73e8; color: white; padding: 8px 13px; border-radius: 8px; text-decoration: none; }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 24px; }.campo span { display: block; color: #777; font-size: 13px; margin-bottom: 5px; }
         .descricao { margin-top: 26px; padding-top: 22px; border-top: 1px solid #eee; }.descricao h3 { margin-bottom: 12px; }
         .clientes { display: flex; gap: 7px; flex-wrap: wrap; }.clientes a { background: #e8f0fe; color: #1a73e8; padding: 5px 10px; border-radius: 15px; text-decoration: none; }
         @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260724-2"><script src="/static/app/theme.js?v=20260728-2"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260730-1"><script src="/static/app/theme.js?v=20260728-2"></script>
 </head>
 <body>
     <div class="topo"><h2>Erro Conhecido</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container"><a class="voltar" href="{% url 'erros_conhecidos' %}">← Voltar para a lista</a>
-        <article class="card"><div class="cabecalho"><h1>{{ erro.palavra_chave }}</h1><span class="tag">{{ erro.get_modulo_display }}</span></div>
+        <article class="card"><div class="cabecalho"><h1>{{ erro.palavra_chave }}</h1><div class="cabecalho-acoes"><span class="tag">{{ erro.get_modulo_display }}</span><span class="status-correcao {% if erro.corrigido %}sim{% else %}nao{% endif %}">Corrigido: {{ erro.corrigido|yesno:"Sim,Não" }}</span><a class="editar" href="{% url 'editar_erro_conhecido' erro.id %}">Editar</a></div></div>
             <div class="grid">
                 <div class="campo"><span>Versão Observada</span><strong>{{ erro.versao_observada }}</strong></div>
                 <div class="campo"><span>Ticket Netcontroll</span><strong>{{ erro.ticket_netcontroll }}</strong></div>
                 <div class="campo"><span>Clientes</span><div class="clientes">{% for cliente in erro.clientes.all %}<a href="{% url 'detalhes_cliente' cliente.id %}">{{ cliente.nome_fantasia }}</a>{% endfor %}</div></div>
             </div>
             <div class="descricao"><h3>Descrição</h3><div>{{ erro.descricao|linebreaks }}</div></div>
+            <div class="descricao"><h3>Medida Corretiva</h3><div>{{ erro.medida_corretiva|default:"Nenhuma medida corretiva cadastrada."|linebreaks }}</div></div>
         </article>
     </main>
 </body>

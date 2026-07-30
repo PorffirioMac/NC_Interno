@@ -73,6 +73,37 @@ html[data-theme="dark"] .topo {
 
 html[data-theme="dark"] .app-nav { background: rgba(21, 18, 94, 0.94); }
 
+.app-nav .app-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    min-width: 48px;
+    margin-right: 3px;
+    padding: 2px 11px 2px 0;
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+}
+
+.app-nav .app-brand:hover {
+    background: transparent;
+    border-color: var(--border);
+    box-shadow: none;
+    transform: scale(1.04);
+}
+
+.app-brand-logo {
+    display: block;
+    width: 36px;
+    height: 42px;
+    object-fit: contain;
+}
+
+.app-brand-logo.logo-dark { display: none; }
+html[data-theme="dark"] .app-brand-logo.logo-light { display: none; }
+html[data-theme="dark"] .app-brand-logo.logo-dark { display: block; }
+
 .app-nav a {
     color: var(--text-muted);
     text-decoration: none;
@@ -336,6 +367,17 @@ html[data-theme="dark"] .solicitacao .comentario strong {
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--surface);
+}
+
+@media (max-width: 700px) {
+    .app-nav {
+        padding: 10px 16px;
+    }
+
+    .app-brand-logo {
+        width: 31px;
+        height: 36px;
+    }
 }
 .attachment-item > div { min-width: 0; flex: 1; }
 .attachment-item small { display: block; margin-top: 3px; }

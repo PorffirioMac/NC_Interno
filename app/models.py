@@ -39,6 +39,8 @@ class ErroConhecido(models.Model):
     palavra_chave = models.CharField('Palavra-Chave', max_length=200)
     modulo = models.CharField('Módulo', max_length=30, choices=MODULOS)
     descricao = models.TextField('Descrição')
+    corrigido = models.BooleanField('Corrigido?', default=False)
+    medida_corretiva = models.TextField('Medida Corretiva', blank=True)
     versao_observada = models.CharField('Versão Observada', max_length=100)
     clientes = models.ManyToManyField(Cliente, related_name='erros_conhecidos')
     ticket_netcontroll = models.CharField('Ticket Netcontroll', max_length=100)
