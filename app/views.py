@@ -14,16 +14,24 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
 from .forms import (
-    ClienteForm, DespesaFinanceiraForm, ErroConhecidoForm, ReleaseForm,
-    RotinaForm, SolicitacaoReleaseForm,
+    ClienteForm, DespesaFinanceiraForm, ErroConhecidoForm,
+    ProcedimentoInternoForm, ReleaseForm, RotinaForm, SolicitacaoReleaseForm,
 )
 from .models import (
-    Cliente, ComentarioSolicitacao, ErroConhecido, Release,
+    AnexoErroConhecido, AnexoProcedimento, AnexoTicket, Cliente, ComentarioSolicitacao,
+    Comunicacao, ComunicacaoDestinatario, DespesaFinanceira, ErroConhecido,
+    ProcedimentoInterno, Release, Rotina, RotinaConclusao,
     SolicitacaoRelease, Task, ChecklistItem, Comment, Notificacao,
-    AnexoTicket, Comunicacao, ComunicacaoDestinatario, DespesaFinanceira,
-    Rotina, RotinaConclusao,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
+
+
+EXTENSOES_ANEXOS_PERMITIDAS = {
+    '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp',
+    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.txt', '.csv', '.zip', '.rar', '.7z',
+}
+TAMANHO_MAXIMO_ANEXO = 20 * 1024 * 1024
 
 
 def sair(request):
@@ -93,6 +101,7 @@ def status_notificacoes(request):
     resumo_notificacoes = Notificacao.objects.filter(
         destinatario=request.user,
         lida=False,
+        tarefa__encerrada=False,
     ).aggregate(total=Count('id'), ultima=Max('id'))
     resumo_comunicacoes = ComunicacaoDestinatario.objects.filter(
         destinatario=request.user,
@@ -364,8 +373,155 @@ def editar_erro_conhecido(request, erro_id):
 
 @login_required(login_url='/login/')
 def detalhes_erro_conhecido(request, erro_id):
-    erro = get_object_or_404(ErroConhecido.objects.prefetch_related('clientes'), id=erro_id)
+    erro = get_object_or_404(
+        ErroConhecido.objects.prefetch_related('clientes', 'anexos'),
+        id=erro_id,
+    )
+    if request.method == 'POST' and 'enviar_anexo' in request.POST:
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            messages.error(request, 'Selecione um arquivo para anexar.')
+        elif arquivo.size > TAMANHO_MAXIMO_ANEXO:
+            messages.error(request, 'O arquivo deve ter no máximo 20 MB.')
+        elif Path(arquivo.name).suffix.lower() not in EXTENSOES_ANEXOS_PERMITIDAS:
+            messages.error(request, 'Este tipo de arquivo não é permitido.')
+        else:
+            AnexoErroConhecido.objects.create(
+                erro=erro,
+                arquivo=arquivo,
+                nome_original=Path(arquivo.name).name[:255],
+                tamanho=arquivo.size,
+                enviado_por=request.user,
+            )
+            messages.success(request, 'Anexo enviado com sucesso!')
+        return redirect('detalhes_erro_conhecido', erro_id=erro.id)
     return render(request, 'app/detalhes_erro_conhecido.html', {'erro': erro})
+
+
+@login_required(login_url='/login/')
+def baixar_anexo_erro_conhecido(request, anexo_id):
+    anexo = get_object_or_404(AnexoErroConhecido, id=anexo_id)
+    return FileResponse(
+        anexo.arquivo.open('rb'),
+        as_attachment=True,
+        filename=anexo.nome_original,
+    )
+
+
+@require_POST
+@login_required(login_url='/login/')
+def remover_anexo_erro_conhecido(request, anexo_id):
+    anexo = get_object_or_404(
+        AnexoErroConhecido.objects.select_related('erro'),
+        id=anexo_id,
+    )
+    erro_id = anexo.erro_id
+    nome = anexo.nome_original
+    anexo.arquivo.delete(save=False)
+    anexo.delete()
+    messages.success(request, f'Anexo “{nome}” removido com sucesso!')
+    return redirect('detalhes_erro_conhecido', erro_id=erro_id)
+
+
+@login_required(login_url='/login/')
+def procedimentos_internos(request):
+    busca = request.GET.get('busca', '').strip()
+    procedimentos = ProcedimentoInterno.objects.annotate(
+        total_anexos=Count('anexos'),
+    ).select_related('criado_por')
+    if busca:
+        procedimentos = procedimentos.filter(
+            Q(titulo__icontains=busca) | Q(conteudo__icontains=busca)
+        )
+    return render(request, 'app/procedimentos_internos.html', {
+        'procedimentos': procedimentos,
+        'busca': busca,
+    })
+
+
+@login_required(login_url='/login/')
+def criar_procedimento(request):
+    form = ProcedimentoInternoForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        procedimento = form.save(commit=False)
+        procedimento.criado_por = request.user
+        procedimento.save()
+        messages.success(request, 'Procedimento interno cadastrado com sucesso!')
+        return redirect('detalhes_procedimento', procedimento_id=procedimento.id)
+    return render(request, 'app/form_procedimento.html', {
+        'form': form,
+        'titulo_pagina': 'Novo Procedimento Interno',
+        'texto_botao': 'Salvar Procedimento',
+    })
+
+
+@login_required(login_url='/login/')
+def editar_procedimento(request, procedimento_id):
+    procedimento = get_object_or_404(ProcedimentoInterno, id=procedimento_id)
+    form = ProcedimentoInternoForm(request.POST or None, instance=procedimento)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Procedimento interno atualizado com sucesso!')
+        return redirect('detalhes_procedimento', procedimento_id=procedimento.id)
+    return render(request, 'app/form_procedimento.html', {
+        'form': form,
+        'titulo_pagina': 'Editar Procedimento Interno',
+        'texto_botao': 'Salvar Alterações',
+    })
+
+
+@login_required(login_url='/login/')
+def detalhes_procedimento(request, procedimento_id):
+    procedimento = get_object_or_404(
+        ProcedimentoInterno.objects.select_related('criado_por').prefetch_related('anexos'),
+        id=procedimento_id,
+    )
+    if request.method == 'POST' and 'enviar_anexo' in request.POST:
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            messages.error(request, 'Selecione um arquivo para anexar.')
+        elif arquivo.size > TAMANHO_MAXIMO_ANEXO:
+            messages.error(request, 'O arquivo deve ter no máximo 20 MB.')
+        elif Path(arquivo.name).suffix.lower() not in EXTENSOES_ANEXOS_PERMITIDAS:
+            messages.error(request, 'Este tipo de arquivo não é permitido.')
+        else:
+            AnexoProcedimento.objects.create(
+                procedimento=procedimento,
+                arquivo=arquivo,
+                nome_original=Path(arquivo.name).name[:255],
+                tamanho=arquivo.size,
+                enviado_por=request.user,
+            )
+            messages.success(request, 'Anexo enviado com sucesso!')
+        return redirect('detalhes_procedimento', procedimento_id=procedimento.id)
+    return render(request, 'app/detalhes_procedimento.html', {
+        'procedimento': procedimento,
+    })
+
+
+@login_required(login_url='/login/')
+def baixar_anexo_procedimento(request, anexo_id):
+    anexo = get_object_or_404(AnexoProcedimento, id=anexo_id)
+    return FileResponse(
+        anexo.arquivo.open('rb'),
+        as_attachment=True,
+        filename=anexo.nome_original,
+    )
+
+
+@require_POST
+@login_required(login_url='/login/')
+def remover_anexo_procedimento(request, anexo_id):
+    anexo = get_object_or_404(
+        AnexoProcedimento.objects.select_related('procedimento'),
+        id=anexo_id,
+    )
+    procedimento_id = anexo.procedimento_id
+    nome = anexo.nome_original
+    anexo.arquivo.delete(save=False)
+    anexo.delete()
+    messages.success(request, f'Anexo “{nome}” removido com sucesso!')
+    return redirect('detalhes_procedimento', procedimento_id=procedimento_id)
 
 
 @login_required(login_url='/login/')
@@ -723,6 +879,7 @@ def gerar_ticket_implantacao(request, tarefa_id):
     implantacao = Task.objects.create(
         titulo=comercial.titulo,
         descricao=comercial.descricao,
+        modulo=comercial.modulo,
         area='tickets',
         fase='implantacao',
         status='pendente_netcamp',
@@ -823,6 +980,20 @@ def criar_tarefa(request):
             return render(request, 'app/criar_tarefa.html', {
                 'users': users,
                 'status_choices': Task.STATUS_CHOICES,
+                'modulos': Task.MODULOS,
+                'fases': fases_disponiveis,
+                'area': area,
+                'clientes': Cliente.objects.filter(ativo=True),
+            })
+
+        modulo = request.POST.get('modulo', '')
+        if modulo not in dict(Task.MODULOS):
+            messages.error(request, 'Selecione um módulo válido.')
+            users = User.objects.filter(is_active=True).order_by('username') if request.user.is_superuser else None
+            return render(request, 'app/criar_tarefa.html', {
+                'users': users,
+                'status_choices': Task.STATUS_CHOICES,
+                'modulos': Task.MODULOS,
                 'fases': fases_disponiveis,
                 'area': area,
                 'clientes': Cliente.objects.filter(ativo=True),
@@ -845,6 +1016,7 @@ def criar_tarefa(request):
         tarefa = Task.objects.create(
             titulo=request.POST['titulo'],
             descricao=request.POST.get('descricao', ''),
+            modulo=modulo,
             area=area,
             fase=request.POST['fase'],
             status=status,
@@ -906,6 +1078,7 @@ def criar_tarefa(request):
     return render(request, 'app/criar_tarefa.html', {
         'users': users,
         'status_choices': Task.STATUS_CHOICES,
+        'modulos': Task.MODULOS,
         'fases': fases_disponiveis,
         'area': area,
         'clientes': Cliente.objects.filter(ativo=True),
@@ -963,6 +1136,7 @@ def detalhes_tarefa(request, tarefa_id):
             fase = request.POST.get('fase', '')
             status = request.POST.get('status', '')
             prioridade = request.POST.get('prioridade', '')
+            modulo = request.POST.get('modulo', '')
             prazo_texto = request.POST.get('prazo', '').strip()
             if not titulo:
                 messages.error(request, 'Informe o título do ticket.')
@@ -975,6 +1149,9 @@ def detalhes_tarefa(request, tarefa_id):
                 return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
             if prioridade not in dict(prioridades):
                 messages.error(request, 'Selecione uma prioridade válida.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+            if modulo not in dict(Task.MODULOS):
+                messages.error(request, 'Selecione um módulo válido.')
                 return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
 
             prazo = None
@@ -992,6 +1169,7 @@ def detalhes_tarefa(request, tarefa_id):
             )
             tarefa.titulo = titulo
             tarefa.descricao = request.POST.get('descricao', '').strip()
+            tarefa.modulo = modulo
             tarefa.fase = fase
             tarefa.status = status
             tarefa.prioridade = prioridade
@@ -1042,6 +1220,7 @@ def detalhes_tarefa(request, tarefa_id):
         'is_admin': request.user.is_superuser,
         'users': users,
         'status_choices': Task.STATUS_CHOICES,
+        'modulos': Task.MODULOS,
         'fases': fases_disponiveis,
         'prioridades': prioridades,
         'pode_editar': pode_editar,
@@ -1327,6 +1506,7 @@ def encerrar_tarefa(request, tarefa_id):
     tarefa.encerrada = True
     tarefa.encerrado_em = timezone.now()
     tarefa.save(update_fields=['encerrada', 'encerrado_em', 'atualizado_em'])
+    tarefa.notificacoes.filter(lida=False).update(lida=True)
     messages.success(request, 'Ticket encerrado com sucesso!')
     return redirect('tarefas_encerradas')
 

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titulo_pagina }} - NC Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 880px; margin: 30px auto; padding: 0 20px; }
+        .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .card { background: white; padding: 32px; border-radius: 14px; box-shadow: 0 2px 8px #0000000f; }
+        h1 { margin-bottom: 8px; }
+        .orientacao { color: #667085; margin-bottom: 26px; }
+        .campo { margin-bottom: 20px; }
+        label { display: block; font-weight: 700; margin-bottom: 7px; }
+        input, textarea { width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 9px; font: inherit; }
+        textarea { resize: vertical; line-height: 1.5; }
+        .erro { color: #b42318; font-size: 13px; margin-top: 5px; }
+        .btn { width: 100%; border: 0; border-radius: 9px; padding: 12px; background: #1a73e8; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
+    <script src="/static/app/theme.js?v=20260805-1"></script>
+</head>
+<body>
+    <div class="topo"><h2>📚 {{ titulo_pagina }}</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <a class="voltar" href="{% url 'procedimentos_internos' %}">← Voltar para Procedimentos</a>
+        <div class="card">
+            <h1>{{ titulo_pagina }}</h1>
+            <p class="orientacao">Organize as instruções na sequência em que deverão ser executadas.</p>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="campo">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="erro">{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn" type="submit">{{ texto_botao }}</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

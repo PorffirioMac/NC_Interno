@@ -8,7 +8,7 @@
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
         .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
         .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }.voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
-        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; margin-bottom: 22px; }
         .cabecalho { display: flex; justify-content: space-between; gap: 15px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .tag { background: #e8f0fe; color: #1a73e8; padding: 7px 12px; border-radius: 20px; height: fit-content; }
         .cabecalho-acoes { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
@@ -19,14 +19,24 @@
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 24px; }.campo span { display: block; color: #777; font-size: 13px; margin-bottom: 5px; }
         .descricao { margin-top: 26px; padding-top: 22px; border-top: 1px solid #eee; }.descricao h3 { margin-bottom: 12px; }
         .clientes { display: flex; gap: 7px; flex-wrap: wrap; }.clientes a { background: #e8f0fe; color: #1a73e8; padding: 5px 10px; border-radius: 15px; text-decoration: none; }
-        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+        .mensagens { list-style: none; margin-bottom: 16px; }.mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
+        .attachment-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+        .attachment-heading h2 { margin-bottom: 5px; }.attachment-heading p { color: #667085; font-size: 13px; }
+        .attachment-upload { min-width: 300px; flex: 1; max-width: 440px; }.attachment-upload input { width: 100%; margin-bottom: 9px; }.attachment-upload small { display: block; color: #667085; margin-top: 7px; }
+        .btn { border: 0; border-radius: 8px; padding: 9px 14px; background: #1a73e8; color: white; cursor: pointer; }
+        .attachment-list { margin-top: 22px; display: grid; gap: 10px; }
+        .attachment-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #e0e5ec; border-radius: 10px; }
+        .attachment-download { color: #1a73e8; font-weight: 700; text-decoration: none; }.attachment-item small { display: block; color: #748094; margin-top: 3px; }
+        .attachment-remove { border: 1px solid #d92d20; background: transparent; color: #d92d20; border-radius: 7px; padding: 6px 9px; cursor: pointer; }.attachment-empty { color: #7a8493; }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .attachment-upload { min-width: 100%; } .attachment-item { grid-template-columns: auto 1fr; } .attachment-item form { grid-column: 2; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260730-1"><script src="/static/app/theme.js?v=20260728-2"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1"><script src="/static/app/theme.js?v=20260805-1"></script>
 </head>
 <body>
     <div class="topo"><h2>Erro Conhecido</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container"><a class="voltar" href="{% url 'erros_conhecidos' %}">← Voltar para a lista</a>
+        {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
         <article class="card"><div class="cabecalho"><h1>{{ erro.palavra_chave }}</h1><div class="cabecalho-acoes"><span class="tag">{{ erro.get_modulo_display }}</span><span class="status-correcao {% if erro.corrigido %}sim{% else %}nao{% endif %}">Corrigido: {{ erro.corrigido|yesno:"Sim,Não" }}</span><a class="editar" href="{% url 'editar_erro_conhecido' erro.id %}">Editar</a></div></div>
             <div class="grid">
                 <div class="campo"><span>Versão Observada</span><strong>{{ erro.versao_observada }}</strong></div>
@@ -36,6 +46,27 @@
             <div class="descricao"><h3>Descrição</h3><div>{{ erro.descricao|linebreaks }}</div></div>
             <div class="descricao"><h3>Medida Corretiva</h3><div>{{ erro.medida_corretiva|default:"Nenhuma medida corretiva cadastrada."|linebreaks }}</div></div>
         </article>
+        <section class="card">
+            <div class="attachment-heading">
+                <div><h2>📎 Anexos</h2><p>Arquivos de apoio, evidências e documentos relacionados a este erro.</p></div>
+                <form method="post" enctype="multipart/form-data" class="attachment-upload">
+                    {% csrf_token %}
+                    <input type="hidden" name="enviar_anexo" value="1">
+                    <input type="file" name="arquivo" required accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+                    <button type="submit" class="btn">Enviar anexo</button>
+                    <small>Limite de 20 MB por arquivo. Executáveis não são aceitos.</small>
+                </form>
+            </div>
+            <div class="attachment-list">
+                {% for anexo in erro.anexos.all %}
+                <div class="attachment-item">
+                    <span>📄</span>
+                    <div><a class="attachment-download" href="{% url 'baixar_anexo_erro_conhecido' anexo.id %}">{{ anexo.nome_original }}</a><small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small></div>
+                    <form method="post" action="{% url 'remover_anexo_erro_conhecido' anexo.id %}">{% csrf_token %}<button type="submit" class="attachment-remove" onclick="return confirm('Remover definitivamente este anexo?')">Remover</button></form>
+                </div>
+                {% empty %}<p class="attachment-empty">Nenhum arquivo anexado a este erro conhecido.</p>{% endfor %}
+            </div>
+        </section>
     </main>
 </body>
 </html>

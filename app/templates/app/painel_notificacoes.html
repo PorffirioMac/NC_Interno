@@ -116,16 +116,21 @@
                         data-url="{% url 'marcar_todas_notificacoes_lidas' %}">Marcar todas como lidas</button>
                 {% endif %}
             </div>
-            <div id="notificationUpdates">
+            <div id="notificationUpdates" data-update-count="{{ painel_nao_lidas }}">
                 {% for notificacao in painel_notificacoes %}
-                <a class="notification-item update {% if not notificacao.lida %}unread{% endif %}"
-                   href="{% url 'detalhes_tarefa' notificacao.tarefa_id %}"
-                   data-read-url="{% url 'marcar_notificacao_lida' notificacao.id %}">
-                    <span class="notification-dot"></span>
-                    <span><strong>{{ notificacao.mensagem }}</strong><small>{{ notificacao.criado_em|date:'d/m/Y H:i' }}</small></span>
-                </a>
+                <div class="notification-update-row">
+                    <a class="notification-item update unread"
+                       href="{% url 'detalhes_tarefa' notificacao.tarefa_id %}"
+                       data-read-url="{% url 'marcar_notificacao_lida' notificacao.id %}">
+                        <span class="notification-dot"></span>
+                        <span><strong>{{ notificacao.mensagem }}</strong><small>{{ notificacao.criado_em|date:'d/m/Y H:i' }}</small></span>
+                    </a>
+                    <button type="button" class="notification-dismiss"
+                            data-dismiss-url="{% url 'marcar_notificacao_lida' notificacao.id %}"
+                            aria-label="Confirmar e remover esta atualização">OK</button>
+                </div>
                 {% empty %}
-                <p class="notification-empty">Nenhuma atualização recebida.</p>
+                <p class="notification-empty">Nenhuma atualização nova.</p>
                 {% endfor %}
             </div>
         </section>

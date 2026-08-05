@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedimentos Internos - NC Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .intro { margin-bottom: 22px; }
+        .intro h1 { font-size: 25px; margin-bottom: 6px; }
+        .intro p { color: #667085; }
+        .actions { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+        .busca { display: flex; gap: 8px; flex: 1; max-width: 680px; }
+        .busca input { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn { border: 0; border-radius: 8px; padding: 11px 18px; background: #1a73e8; color: white; text-decoration: none; cursor: pointer; white-space: nowrap; }
+        .procedure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .procedure-link { color: inherit; text-decoration: none; }
+        .procedure-card { height: 100%; padding: 24px; border-radius: 14px; background: white; }
+        .procedure-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 13px; }
+        .procedure-head h2 { font-size: 18px; color: #1a73e8; }
+        .attachment-count { flex-shrink: 0; padding: 5px 9px; border-radius: 999px; background: #e8f0fe; color: #1a73e8; font-size: 12px; font-weight: 700; }
+        .procedure-preview { color: #5d6675; line-height: 1.55; margin-bottom: 18px; }
+        .procedure-meta { display: flex; justify-content: space-between; gap: 10px; color: #7a8493; font-size: 12px; border-top: 1px solid #e6eaf0; padding-top: 12px; }
+        .vazio { background: white; padding: 46px; text-align: center; border-radius: 14px; color: #777; }
+        @media (max-width: 760px) { .procedure-grid { grid-template-columns: 1fr; } .busca { max-width: none; } }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
+    <script src="/static/app/theme.js?v=20260805-1"></script>
+</head>
+<body>
+    <div class="topo"><h2>📚 Procedimentos Internos</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <div class="intro">
+            <h1>Procedimentos da equipe</h1>
+            <p>Consulte instruções internas e arquivos de apoio para executar cada processo do começo ao fim.</p>
+        </div>
+        <div class="actions">
+            <form method="get" class="busca">
+                <input type="search" name="busca" value="{{ busca }}" placeholder="Buscar por título ou conteúdo do procedimento">
+                <button class="btn" type="submit">Buscar</button>
+            </form>
+            <a class="btn" href="{% url 'criar_procedimento' %}">+ Novo Procedimento</a>
+        </div>
+        {% if procedimentos %}
+        <section class="procedure-grid">
+            {% for procedimento in procedimentos %}
+            <a class="procedure-link" href="{% url 'detalhes_procedimento' procedimento.id %}">
+                <article class="card procedure-card">
+                    <div class="procedure-head">
+                        <h2>{{ procedimento.titulo }}</h2>
+                        <span class="attachment-count">📎 {{ procedimento.total_anexos }}</span>
+                    </div>
+                    <p class="procedure-preview">{{ procedimento.conteudo|striptags|truncatechars:190 }}</p>
+                    <div class="procedure-meta">
+                        <span>{% if procedimento.criado_por %}Por {{ procedimento.criado_por.username }}{% else %}Autor removido{% endif %}</span>
+                        <span>Atualizado em {{ procedimento.atualizado_em|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </article>
+            </a>
+            {% endfor %}
+        </section>
+        {% else %}
+        <div class="vazio">Nenhum procedimento interno encontrado.</div>
+        {% endif %}
+    </main>
+</body>
+</html>

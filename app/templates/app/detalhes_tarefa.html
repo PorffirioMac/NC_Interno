@@ -38,8 +38,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260730-1">
-    <script src="/static/app/theme.js?v=20260728-2"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
+    <script src="/static/app/theme.js?v=20260805-1"></script>
 </head>
 <body>
     <div class="topo">
@@ -66,6 +66,7 @@
                 <span class="tag">{{ tarefa.get_fase_display }}</span>
                 <span class="tag">{{ tarefa.get_status_display }}</span>
                 <span class="tag">🔴 {{ tarefa.get_prioridade_display }}</span>
+                <span class="tag">🧩 {{ tarefa.get_modulo_display }}</span>
                 {% if tarefa.responsavel %}
                 <span class="tag">👤 {{ tarefa.responsavel.username }}</span>
                 {% endif %}
@@ -143,7 +144,7 @@
                 <button type="submit" class="btn btn-small">Comentar</button>
             </form>
             <div style="margin-top: 16px;">
-                {% for comentario in tarefa.comentarios.all %}
+                {% for comentario in tarefa.comentarios.all reversed %}
                 <div class="comentario">
                     <div>
                         <span class="autor">{{ comentario.autor.username }}</span>
@@ -254,6 +255,13 @@
                     <textarea name="descricao">{{ tarefa.descricao }}</textarea>
                 </label>
                 <div class="grid-2">
+                    <label>Módulo
+                        <select name="modulo">
+                            {% for valor, nome in modulos %}
+                            <option value="{{ valor }}" {% if tarefa.modulo == valor %}selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
                     <label>Coluna
                         <select name="fase" required>
                             {% for valor, nome in fases %}

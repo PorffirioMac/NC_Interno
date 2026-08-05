@@ -3,6 +3,18 @@ from django.contrib.auth.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 
+MODULOS_SISTEMA = [
+    ('pdv', 'PDV'),
+    ('pdv_pos', 'PDV/POS'),
+    ('portal', 'Portal'),
+    ('tablet_mesa', 'Tablet Mesa'),
+    ('totem', 'Totem'),
+    ('ecommerce', 'E-commerce'),
+    ('nfce', 'NFCe'),
+    ('outros', 'Outros'),
+]
+
+
 class Cliente(models.Model):
     codigo = models.CharField('ID', max_length=5, unique=True, null=True, blank=True)
     nome_fantasia = models.CharField('Nome Fantasia', max_length=200)
@@ -25,16 +37,7 @@ class Cliente(models.Model):
 
 
 class ErroConhecido(models.Model):
-    MODULOS = [
-        ('pdv', 'PDV'),
-        ('pdv_pos', 'PDV/POS'),
-        ('portal', 'Portal'),
-        ('tablet_mesa', 'Tablet Mesa'),
-        ('totem', 'Totem'),
-        ('ecommerce', 'E-commerce'),
-        ('nfce', 'NFCe'),
-        ('outros', 'Outros'),
-    ]
+    MODULOS = MODULOS_SISTEMA
 
     palavra_chave = models.CharField('Palavra-Chave', max_length=200)
     modulo = models.CharField('Módulo', max_length=30, choices=MODULOS)
@@ -128,6 +131,8 @@ class Task(models.Model):
         ('comercial', 'Comercial'),
     ]
 
+    MODULOS = [('', 'Sem Módulo Definido'), *MODULOS_SISTEMA]
+
     STATUS_CHOICES = [
         ('pendente_cliente', 'Pendente Cliente'),
         ('pendente_netcamp', 'Pendente NetCamp'),
@@ -177,6 +182,13 @@ class Task(models.Model):
 
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True)
+    modulo = models.CharField(
+        'Módulo',
+        max_length=30,
+        choices=MODULOS,
+        blank=True,
+        default='',
+    )
     area = models.CharField(max_length=20, choices=AREAS, default='tickets')
     fase = models.CharField(max_length=40, choices=FASES, default='tickets_abertos')
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pendente_cliente')
@@ -345,6 +357,73 @@ class AnexoTicket(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         related_name='anexos_enviados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.nome_original
+
+
+class ProcedimentoInterno(models.Model):
+    titulo = models.CharField('Título', max_length=200)
+    conteudo = models.TextField('Procedimento')
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='procedimentos_criados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['titulo']
+
+    def __str__(self):
+        return self.titulo
+
+
+class AnexoProcedimento(models.Model):
+    procedimento = models.ForeignKey(
+        ProcedimentoInterno,
+        on_delete=models.CASCADE,
+        related_name='anexos',
+    )
+    arquivo = models.FileField(upload_to='procedimentos/anexos/%Y/%m/')
+    nome_original = models.CharField(max_length=255)
+    tamanho = models.PositiveBigIntegerField(default=0)
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='anexos_procedimentos_enviados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.nome_original
+
+
+class AnexoErroConhecido(models.Model):
+    erro = models.ForeignKey(
+        ErroConhecido,
+        on_delete=models.CASCADE,
+        related_name='anexos',
+    )
+    arquivo = models.FileField(upload_to='erros-conhecidos/anexos/%Y/%m/')
+    nome_original = models.CharField(max_length=255)
+    tamanho = models.PositiveBigIntegerField(default=0)
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='anexos_erros_conhecidos_enviados',
     )
     criado_em = models.DateTimeField(auto_now_add=True)
 

@@ -90,8 +90,8 @@
                     }
                     function iniciar() {
                         const agora = contexto.currentTime + 0.03;
-                        criarNota(659.25, agora, 0.22, 0.42);
-                        criarNota(783.99, agora + 0.15, 0.30, 0.36);
+                        criarNota(659.25, agora, 0.22, 0.58);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.50);
                         window.setTimeout(function () {
                             contexto.close().finally(resolve);
                         }, 650);
@@ -375,12 +375,43 @@
             });
         }
 
+        const updates = document.getElementById('notificationUpdates');
+
+        function reduzirBadge(quantidade) {
+            const badge = document.getElementById('notificationBadge');
+            if (!badge) return;
+            const restante = Math.max(0, Number(badge.textContent || 0) - quantidade);
+            if (restante) badge.textContent = String(restante);
+            else badge.remove();
+        }
+
+        function mostrarAtualizacoesVazias() {
+            if (!updates || updates.querySelector('.notification-update-row')) return;
+            updates.innerHTML = '<p class="notification-empty">Nenhuma atualização nova.</p>';
+            const botaoTodas = document.getElementById('notificationReadAll');
+            if (botaoTodas) botaoTodas.remove();
+        }
+
         painel.querySelectorAll('[data-read-url]').forEach(function (item) {
             item.addEventListener('click', function (event) {
-                if (!item.classList.contains('unread')) return;
                 event.preventDefault();
                 postar(item.dataset.readUrl).finally(function () {
                     window.location.href = item.href;
+                });
+            });
+        });
+
+        painel.querySelectorAll('[data-dismiss-url]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                botao.disabled = true;
+                postar(botao.dataset.dismissUrl).then(function (response) {
+                    if (!response.ok) throw new Error('Não foi possível confirmar a atualização.');
+                    const linha = botao.closest('.notification-update-row');
+                    if (linha) linha.remove();
+                    reduzirBadge(1);
+                    mostrarAtualizacoesVazias();
+                }).catch(function () {
+                    botao.disabled = false;
                 });
             });
         });
@@ -390,18 +421,13 @@
             readAll.addEventListener('click', function () {
                 postar(readAll.dataset.url).then(function (response) {
                     if (!response.ok) return;
-                    painel.querySelectorAll('#notificationUpdates .notification-item.unread').forEach(function (item) {
-                        item.classList.remove('unread');
+                    const quantidade = Number(updates && updates.dataset.updateCount || 0);
+                    painel.querySelectorAll('#notificationUpdates .notification-update-row').forEach(function (item) {
+                        item.remove();
                     });
                     readAll.remove();
-                    const badge = document.getElementById('notificationBadge');
-                    if (badge) {
-                        const restantes = painel.querySelectorAll(
-                            '.notification-item.deadline, .notification-item.communication.unread'
-                        ).length;
-                        if (restantes) badge.textContent = String(restantes);
-                        else badge.remove();
-                    }
+                    reduzirBadge(quantidade);
+                    mostrarAtualizacoesVazias();
                 });
             });
         }

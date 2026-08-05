@@ -53,11 +53,15 @@ def painel_notificacoes(context):
         ),
         default=0,
     )
-    notificacoes = list(
-        Notificacao.objects.filter(destinatario=request.user)
-        .select_related('ator', 'tarefa')[:30]
+    notificacoes_query = Notificacao.objects.filter(
+        destinatario=request.user,
+        lida=False,
+        tarefa__encerrada=False,
     )
-    nao_lidas = sum(not item.lida for item in notificacoes)
+    nao_lidas = notificacoes_query.count()
+    notificacoes = list(
+        notificacoes_query.select_related('ator', 'tarefa')[:30]
+    )
     comunicacoes_query = ComunicacaoDestinatario.objects.filter(
         destinatario=request.user,
         lida=False,
@@ -65,7 +69,7 @@ def painel_notificacoes(context):
     comunicacoes = list(comunicacoes_query.select_related('comunicacao')[:5])
     total_comunicacoes = comunicacoes_query.count()
     ultima_notificacao_id = (
-        Notificacao.objects.filter(destinatario=request.user, lida=False)
+        notificacoes_query
         .aggregate(id=Max('id'))['id'] or 0
     )
     ultima_comunicacao_id = comunicacoes_query.aggregate(id=Max('id'))['id'] or 0

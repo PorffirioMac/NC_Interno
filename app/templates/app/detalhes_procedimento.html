@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ procedimento.titulo }} - Procedimentos Internos</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 960px; margin: 30px auto; padding: 0 20px; }
+        .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .card { background: white; padding: 32px; border-radius: 14px; box-shadow: 0 2px 8px #0000000f; margin-bottom: 22px; }
+        .cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .cabecalho h1 { font-size: 25px; }
+        .editar { background: #1a73e8; color: white; padding: 9px 14px; border-radius: 8px; text-decoration: none; white-space: nowrap; }
+        .meta { margin-top: 9px; color: #758093; font-size: 13px; }
+        .conteudo { margin-top: 25px; line-height: 1.65; }
+        .conteudo p { margin-bottom: 12px; }
+        .attachment-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+        .attachment-heading h2 { margin-bottom: 5px; }
+        .attachment-heading p { color: #667085; font-size: 13px; }
+        .attachment-upload { min-width: 300px; flex: 1; max-width: 440px; }
+        .attachment-upload input { width: 100%; margin-bottom: 9px; }
+        .attachment-upload small { display: block; color: #667085; margin-top: 7px; }
+        .btn { border: 0; border-radius: 8px; padding: 9px 14px; background: #1a73e8; color: white; cursor: pointer; }
+        .attachment-list { margin-top: 22px; display: grid; gap: 10px; }
+        .attachment-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #e0e5ec; border-radius: 10px; }
+        .attachment-download { color: #1a73e8; font-weight: 700; text-decoration: none; }
+        .attachment-item small { display: block; color: #748094; margin-top: 3px; }
+        .attachment-remove { border: 1px solid #d92d20; background: transparent; color: #d92d20; border-radius: 7px; padding: 6px 9px; cursor: pointer; }
+        .attachment-empty { color: #7a8493; }
+        .mensagens { list-style: none; margin-bottom: 16px; }
+        .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
+        @media (max-width: 650px) { .card { padding: 24px; } .cabecalho { flex-direction: column; } .attachment-upload { min-width: 100%; } .attachment-item { grid-template-columns: auto 1fr; } .attachment-item form { grid-column: 2; } }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
+    <script src="/static/app/theme.js?v=20260805-1"></script>
+</head>
+<body>
+    <div class="topo"><h2>📚 Procedimento Interno</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <a class="voltar" href="{% url 'procedimentos_internos' %}">← Voltar para a lista</a>
+        {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
+        <article class="card">
+            <div class="cabecalho">
+                <div>
+                    <h1>{{ procedimento.titulo }}</h1>
+                    <p class="meta">Criado por {{ procedimento.criado_por.username|default:"Usuário removido" }} · Atualizado em {{ procedimento.atualizado_em|date:"d/m/Y H:i" }}</p>
+                </div>
+                <a class="editar" href="{% url 'editar_procedimento' procedimento.id %}">Editar procedimento</a>
+            </div>
+            <div class="conteudo">{{ procedimento.conteudo|linebreaks }}</div>
+        </article>
+        <section class="card">
+            <div class="attachment-heading">
+                <div><h2>📎 Arquivos de apoio</h2><p>Documentos e materiais necessários para executar este procedimento.</p></div>
+                <form method="post" enctype="multipart/form-data" class="attachment-upload">
+                    {% csrf_token %}
+                    <input type="hidden" name="enviar_anexo" value="1">
+                    <input type="file" name="arquivo" required accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z">
+                    <button type="submit" class="btn">Enviar arquivo</button>
+                    <small>Limite de 20 MB por arquivo. Executáveis não são aceitos.</small>
+                </form>
+            </div>
+            <div class="attachment-list">
+                {% for anexo in procedimento.anexos.all %}
+                <div class="attachment-item">
+                    <span>📄</span>
+                    <div><a class="attachment-download" href="{% url 'baixar_anexo_procedimento' anexo.id %}">{{ anexo.nome_original }}</a><small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small></div>
+                    <form method="post" action="{% url 'remover_anexo_procedimento' anexo.id %}">{% csrf_token %}<button type="submit" class="attachment-remove" onclick="return confirm('Remover definitivamente este anexo?')">Remover</button></form>
+                </div>
+                {% empty %}<p class="attachment-empty">Nenhum arquivo anexado a este procedimento.</p>{% endfor %}
+            </div>
+        </section>
+    </main>
+</body>
+</html>

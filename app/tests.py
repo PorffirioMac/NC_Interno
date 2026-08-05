@@ -11,9 +11,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import (
-    AnexoTicket, Cliente, Comment, Comunicacao, ComunicacaoDestinatario,
-    DespesaFinanceira, ErroConhecido, Notificacao, Release, Rotina,
-    RotinaConclusao, Task,
+    AnexoErroConhecido, AnexoProcedimento, AnexoTicket, Cliente, Comment, Comunicacao,
+    ComunicacaoDestinatario, DespesaFinanceira, ErroConhecido, Notificacao,
+    ProcedimentoInterno, Release, Rotina, RotinaConclusao, Task,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 from .views import _data_vencimento_mensal
@@ -49,6 +49,29 @@ class PainelNotificacoesTests(TestCase):
         self.assertEqual(notificacao.destinatario, self.operador)
         self.assertEqual(notificacao.tipo, 'comentario')
         self.assertIn('outro comentou', notificacao.mensagem)
+
+    def test_comentario_mais_recente_aparece_primeiro_no_ticket(self):
+        Comment.objects.create(
+            task=self.tarefa,
+            autor=self.operador,
+            texto='Comentário mais antigo',
+        )
+        Comment.objects.create(
+            task=self.tarefa,
+            autor=self.operador,
+            texto='Comentário mais recente',
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(
+            reverse('detalhes_tarefa', args=[self.tarefa.id]),
+        )
+        conteudo = resposta.content.decode()
+
+        self.assertLess(
+            conteudo.index('Comentário mais recente'),
+            conteudo.index('Comentário mais antigo'),
+        )
 
     def test_nova_atribuicao_notifica_operador(self):
         self.tarefa.responsavel = None
@@ -108,6 +131,66 @@ class PainelNotificacoesTests(TestCase):
             f'{notificacao.id}:{entrega.id}:0:0:0',
         )
         self.assertEqual(resposta['Cache-Control'], 'no-store')
+
+    def test_painel_exibe_somente_atualizacoes_nao_lidas_de_ticket_ativo(self):
+        Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='atribuicao',
+            mensagem='Atualização já confirmada.',
+            lida=True,
+        )
+        self.tarefa.encerrada = True
+        self.tarefa.save()
+        Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='comentario',
+            mensagem='Atualização de ticket encerrado.',
+        )
+        self.client.force_login(self.operador)
+
+        painel = self.client.get(reverse('dashboard'))
+        status = self.client.get(reverse('status_notificacoes'))
+
+        self.assertNotContains(painel, 'Atualização já confirmada.')
+        self.assertNotContains(painel, 'Atualização de ticket encerrado.')
+        self.assertEqual(status.json()['total'], 0)
+
+    def test_confirmar_atualizacao_marca_como_lida(self):
+        notificacao = Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='comentario',
+            mensagem='Confirmar esta atualização.',
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('marcar_notificacao_lida', args=[notificacao.id]),
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        notificacao.refresh_from_db()
+        self.assertTrue(notificacao.lida)
+
+    def test_encerrar_ticket_confirma_atualizacoes_pendentes(self):
+        notificacao = Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='atribuicao',
+            mensagem='Atualização pendente antes do encerramento.',
+        )
+        self.client.force_login(self.operador)
+
+        self.client.get(reverse('encerrar_tarefa', args=[self.tarefa.id]))
+
+        notificacao.refresh_from_db()
+        self.assertTrue(notificacao.lida)
 
 
     def test_responsavel_pode_editar_dados_do_ticket(self):
@@ -396,6 +479,63 @@ class PendenciasPlantaoTests(TestCase):
         self.assertNotContains(dashboard, 'Pendência de outro funcionário')
 
 
+class ModuloTicketTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            'usuario_modulo',
+            password='senha',
+        )
+        self.client.force_login(self.usuario)
+
+    def test_lista_de_modulos_espelha_erros_conhecidos(self):
+        self.assertEqual(Task.MODULOS[1:], ErroConhecido.MODULOS)
+        self.assertEqual(Task.MODULOS[0], ('', 'Sem Módulo Definido'))
+
+    def test_criacao_e_edicao_persistem_modulo(self):
+        resposta = self.client.post(reverse('criar_tarefa'), {
+            'area': 'tickets',
+            'titulo': 'Ticket com módulo',
+            'descricao': '',
+            'modulo': 'pdv_pos',
+            'fase': 'diversos',
+            'status': 'pendente_netcamp',
+            'prioridade': 'media',
+            'prazo': '',
+            'cliente': '',
+        })
+
+        self.assertRedirects(resposta, reverse('tarefas'))
+        tarefa = Task.objects.get(titulo='Ticket com módulo')
+        self.assertEqual(tarefa.modulo, 'pdv_pos')
+
+        self.client.post(reverse('detalhes_tarefa', args=[tarefa.id]), {
+            'editar_ticket': '1',
+            'titulo': tarefa.titulo,
+            'descricao': tarefa.descricao,
+            'modulo': 'portal',
+            'fase': tarefa.fase,
+            'status': tarefa.status,
+            'prioridade': tarefa.prioridade,
+            'prazo': '',
+            'cliente': '',
+        })
+
+        tarefa.refresh_from_db()
+        self.assertEqual(tarefa.modulo, 'portal')
+
+    def test_detalhes_exibem_texto_quando_modulo_nao_foi_definido(self):
+        tarefa = Task.objects.create(
+            titulo='Ticket sem módulo',
+            responsavel=self.usuario,
+        )
+
+        resposta = self.client.get(
+            reverse('detalhes_tarefa', args=[tarefa.id]),
+        )
+
+        self.assertContains(resposta, 'Sem Módulo Definido')
+
+
 class ChecklistComercialTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user(
@@ -533,6 +673,110 @@ class RotinaTests(TestCase):
         self.assertEqual(pendentes, [item])
 
 
+class ProcedimentosInternosTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.usuario = User.objects.create_user(
+            'usuario_procedimento',
+            password='senha',
+        )
+        self.procedimento = ProcedimentoInterno.objects.create(
+            titulo='Instalação do PDV',
+            conteudo='Primeiro configure o servidor. Depois instale o PDV.',
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_lista_pesquisa_e_abre_procedimento(self):
+        lista = self.client.get(
+            reverse('procedimentos_internos'),
+            {'busca': 'configure o servidor'},
+        )
+        detalhes = self.client.get(
+            reverse('detalhes_procedimento', args=[self.procedimento.id]),
+        )
+
+        self.assertContains(lista, 'Instalação do PDV')
+        self.assertContains(detalhes, 'Primeiro configure o servidor.')
+
+    def test_usuario_cria_e_edita_procedimento(self):
+        resposta = self.client.post(reverse('criar_procedimento'), {
+            'titulo': 'Instalação do concentrador',
+            'conteudo': 'Executar a instalação completa.',
+        })
+        criado = ProcedimentoInterno.objects.get(
+            titulo='Instalação do concentrador',
+        )
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_procedimento', args=[criado.id]),
+        )
+        self.assertEqual(criado.criado_por, self.usuario)
+
+        self.client.post(
+            reverse('editar_procedimento', args=[criado.id]),
+            {
+                'titulo': 'Instalação atualizada do concentrador',
+                'conteudo': 'Novo passo a passo.',
+            },
+        )
+        criado.refresh_from_db()
+        self.assertEqual(criado.titulo, 'Instalação atualizada do concentrador')
+        self.assertEqual(criado.conteudo, 'Novo passo a passo.')
+
+    def test_envia_baixa_e_remove_anexo(self):
+        resposta = self.client.post(
+            reverse('detalhes_procedimento', args=[self.procedimento.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile(
+                    'manual.pdf',
+                    b'%PDF-1.4 manual interno',
+                    content_type='application/pdf',
+                ),
+            },
+        )
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_procedimento', args=[self.procedimento.id]),
+        )
+        anexo = AnexoProcedimento.objects.get(procedimento=self.procedimento)
+        storage = anexo.arquivo.storage
+        nome_arquivo = anexo.arquivo.name
+        self.assertTrue(storage.exists(nome_arquivo))
+
+        download = self.client.get(
+            reverse('baixar_anexo_procedimento', args=[anexo.id]),
+        )
+        self.assertEqual(download.status_code, 200)
+        self.assertIn('attachment;', download['Content-Disposition'])
+        b''.join(download.streaming_content)
+        download.close()
+
+        self.client.post(
+            reverse('remover_anexo_procedimento', args=[anexo.id]),
+        )
+        self.assertFalse(AnexoProcedimento.objects.filter(id=anexo.id).exists())
+        self.assertFalse(storage.exists(nome_arquivo))
+
+    def test_bloqueia_arquivo_executavel(self):
+        self.client.post(
+            reverse('detalhes_procedimento', args=[self.procedimento.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile('programa.exe', b'MZ'),
+            },
+        )
+
+        self.assertFalse(AnexoProcedimento.objects.exists())
+
+
 class AnexoTicketTests(TestCase):
     def setUp(self):
         self.media_root = tempfile.mkdtemp()
@@ -638,6 +882,74 @@ class AnexoTicketTests(TestCase):
         self.assertTrue(AnexoTicket.objects.filter(id=anexo.id).exists())
 
 
+class AnexoErroConhecidoTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.usuario = User.objects.create_user(
+            'usuario_anexo_erro',
+            password='senha',
+        )
+        self.erro = ErroConhecido.objects.create(
+            palavra_chave='Erro com evidência',
+            modulo='pdv',
+            descricao='Descrição do erro.',
+            versao_observada='1.0',
+            ticket_netcontroll='NC-456',
+        )
+        self.client.force_login(self.usuario)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_envia_baixa_e_remove_anexo(self):
+        resposta = self.client.post(
+            reverse('detalhes_erro_conhecido', args=[self.erro.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile(
+                    'evidencia.pdf',
+                    b'%PDF-1.4 evidencia',
+                    content_type='application/pdf',
+                ),
+            },
+        )
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_erro_conhecido', args=[self.erro.id]),
+        )
+        anexo = AnexoErroConhecido.objects.get(erro=self.erro)
+        storage = anexo.arquivo.storage
+        nome_arquivo = anexo.arquivo.name
+
+        download = self.client.get(
+            reverse('baixar_anexo_erro_conhecido', args=[anexo.id]),
+        )
+        self.assertEqual(download.status_code, 200)
+        self.assertIn('attachment;', download['Content-Disposition'])
+        b''.join(download.streaming_content)
+        download.close()
+
+        self.client.post(
+            reverse('remover_anexo_erro_conhecido', args=[anexo.id]),
+        )
+        self.assertFalse(AnexoErroConhecido.objects.filter(id=anexo.id).exists())
+        self.assertFalse(storage.exists(nome_arquivo))
+
+    def test_bloqueia_anexo_executavel(self):
+        self.client.post(
+            reverse('detalhes_erro_conhecido', args=[self.erro.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile('programa.exe', b'MZ'),
+            },
+        )
+
+        self.assertFalse(AnexoErroConhecido.objects.exists())
+
+
 class ErroConhecidoCorrecaoTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user(
@@ -720,6 +1032,7 @@ class GerarTicketImplantacaoTests(TestCase):
         self.comercial = Task.objects.create(
             titulo='Nova implantação',
             descricao='Dados da venda',
+            modulo='nfce',
             area='comercial',
             fase='aprovado_aguardando_implantacao',
             responsavel=self.operador,
@@ -749,6 +1062,7 @@ class GerarTicketImplantacaoTests(TestCase):
         )
 
         implantacao = Task.objects.get(origem_comercial=self.comercial)
+        self.assertEqual(implantacao.modulo, 'nfce')
         self.assertRedirects(
             resposta,
             reverse('detalhes_tarefa', args=[implantacao.id]),

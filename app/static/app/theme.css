@@ -167,6 +167,46 @@ table {
     border: 1px solid var(--border) !important;
 }
 
+html[data-theme="dark"] .day-card,
+html[data-theme="dark"] .month-calendar {
+    background: #17145f !important;
+    border-color: #5558ad !important;
+}
+
+html[data-theme="dark"] .tasks-list li {
+    background: #292976 !important;
+    border: 1px solid #5558ad;
+}
+
+html[data-theme="dark"] .month-cell {
+    background: #292976 !important;
+    border: 1px solid #45459b;
+}
+
+html[data-theme="dark"] .month-cell.today {
+    background: #34328a !important;
+    border-color: #69afff !important;
+}
+
+html[data-theme="dark"] .chart-tag {
+    background: #17145f !important;
+    color: #78baff !important;
+    border: 1px solid #5558ad;
+}
+
+html[data-theme="dark"] .tasks-list li a,
+html[data-theme="dark"] .cell-tasks li a,
+html[data-theme="dark"] .date {
+    color: #78baff !important;
+}
+
+html[data-theme="dark"] .weekday,
+html[data-theme="dark"] .weekday-label,
+html[data-theme="dark"] .legend,
+html[data-theme="dark"] .section-title span {
+    color: #c3ceef !important;
+}
+
 .coluna {
     background: var(--surface-muted) !important;
     border: 1px solid var(--border) !important;
@@ -632,6 +672,33 @@ html[data-theme="dark"] .attachment-remove { color: #ffaaa5; }
     cursor: pointer;
     font-size: 16px;
     font-weight: 800;
+}
+.notification-update-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px;
+    align-items: center;
+}
+.notification-update-row .notification-item {
+    min-width: 0;
+}
+.notification-dismiss {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-muted);
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+.notification-dismiss:hover {
+    border-color: var(--primary);
+    filter: brightness(1.06);
+}
+.notification-dismiss:disabled {
+    cursor: wait;
+    opacity: .6;
 }
 .routine-popup-form button:hover { filter: brightness(1.1); transform: scale(1.05); }
 .notification-item.unread { background: var(--primary-soft); }

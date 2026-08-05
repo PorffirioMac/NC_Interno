@@ -4,8 +4,8 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from .models import (
-    Cliente, DespesaFinanceira, ErroConhecido, Release, Rotina,
-    SolicitacaoRelease,
+    Cliente, DespesaFinanceira, ErroConhecido, ProcedimentoInterno, Release,
+    Rotina, SolicitacaoRelease,
 )
 
 
@@ -93,6 +93,21 @@ class ErroConhecidoForm(forms.ModelForm):
                 'placeholder': 'Descreva o procedimento a aplicar quando o erro ocorrer.',
             }),
             'clientes': forms.CheckboxSelectMultiple(),
+        }
+
+
+class ProcedimentoInternoForm(forms.ModelForm):
+    class Meta:
+        model = ProcedimentoInterno
+        fields = ['titulo', 'conteudo']
+        widgets = {
+            'titulo': forms.TextInput(attrs={
+                'placeholder': 'Ex.: Instalação completa do PDV',
+            }),
+            'conteudo': forms.Textarea(attrs={
+                'rows': 18,
+                'placeholder': 'Descreva o procedimento do começo ao fim.',
+            }),
         }
 
 
