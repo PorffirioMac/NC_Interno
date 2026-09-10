@@ -1577,6 +1577,18 @@ class AreaGabrielTests(TestCase):
         lembrete.refresh_from_db()
         self.assertTrue(lembrete.concluida)
 
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+        pagina = self.client.get(reverse('area_gabriel'))
+        self.assertNotIn(lembrete, pagina.context['tarefas_casa'])
+        self.assertIn(lembrete, pagina.context['tarefas_arquivadas'])
+
+        self.client.post(reverse('reabrir_tarefa_pessoal', args=[lembrete.id]))
+        lembrete.refresh_from_db()
+        self.assertFalse(lembrete.concluida)
+        self.assertIsNone(lembrete.concluida_em)
+
     def test_comentarios_da_tarefa_pessoal_podem_ser_criados_editados_e_excluidos(self):
         tarefa = TarefaPessoal.objects.create(
             titulo='Organizar documentos',

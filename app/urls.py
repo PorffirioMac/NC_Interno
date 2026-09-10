@@ -7,6 +7,7 @@ urlpatterns = [
     path('busca/', views.busca_global, name='busca_global'),
     path('gabriel/', views.area_gabriel, name='area_gabriel'),
     path('gabriel/tarefa/<int:tarefa_id>/concluir/', views.concluir_tarefa_pessoal, name='concluir_tarefa_pessoal'),
+    path('gabriel/tarefa/<int:tarefa_id>/reabrir/', views.reabrir_tarefa_pessoal, name='reabrir_tarefa_pessoal'),
     path('gabriel/tarefa/<int:tarefa_id>/excluir/', views.excluir_tarefa_pessoal, name='excluir_tarefa_pessoal'),
     path('gabriel/tarefa/<int:tarefa_id>/comentario/', views.adicionar_comentario_tarefa_pessoal, name='adicionar_comentario_tarefa_pessoal'),
     path('gabriel/comentario/<int:comentario_id>/editar/', views.editar_comentario_tarefa_pessoal, name='editar_comentario_tarefa_pessoal'),

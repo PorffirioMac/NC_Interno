@@ -40,8 +40,11 @@
         .simple-task small { display: block; margin-top: 3px; color: var(--text-muted); }
         .simple-task.overdue:not(.done) small { color: #e03131; font-weight: 700; }
         .simple-task form { margin: 0; }
-        .check-button, .delete-button { border: 0; background: transparent; cursor: pointer; font-size: 18px; box-shadow: none !important; }
-        .delete-button { color: #d13b3b; font-size: 14px; }
+        .check-button, .reopen-button { border: 0; background: transparent; cursor: pointer; font-size: 18px; box-shadow: none !important; }
+        .reopen-button { color: var(--primary); font-size: 12px; font-weight: 800; }
+        .archive-section { margin-top: 20px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+        .archive-section summary { color: var(--text); font-weight: 800; cursor: pointer; }
+        .archive-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin-top: 14px; }
         .task-history-open { padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; box-shadow: none !important; }
         .task-history-open:hover { color: var(--primary); text-decoration: underline; }
         .task-history-dialog { width: min(680px, calc(100% - 28px)); max-height: 85vh; margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-strong); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.45); }
@@ -61,7 +64,7 @@
         .task-comment-add { padding: 18px 22px 22px; border-top: 1px solid var(--border); background: var(--surface); }
         .task-comment-add label { display: block; font-weight: 700; }
         @media (max-width: 1100px) { .private-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 720px) { .private-columns { grid-template-columns: 1fr; } .simple-add { grid-template-columns: 1fr; } .simple-add input[name="titulo"] { grid-column: auto; } }
+        @media (max-width: 720px) { .private-columns, .archive-list { grid-template-columns: 1fr; } .simple-add { grid-template-columns: 1fr; } .simple-add input[name="titulo"] { grid-column: auto; } }
     </style>
 </head>
 <body>
@@ -101,6 +104,12 @@
                     {% for item in tarefas_gabriel %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
         </section>
         </div>
+        <details class="archive-section">
+            <summary>🗃️ Arquivo de tarefas concluídas ({{ tarefas_arquivadas|length }})</summary>
+            <div class="archive-list">
+                {% for item in tarefas_arquivadas %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa arquivada.</p>{% endfor %}
+            </div>
+        </details>
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', function () {

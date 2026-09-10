@@ -1003,8 +1003,11 @@ def area_gabriel(request):
     return render(request, 'app/area_gabriel.html', {
         'tickets_netcamp': tickets_netcamp,
         'fases_netcamp': dict(Task.FASES_TICKETS),
-        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba').prefetch_related('comentarios'),
-        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel').prefetch_related('comentarios'),
+        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba', concluida=False).prefetch_related('comentarios'),
+        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel', concluida=False).prefetch_related('comentarios'),
+        'tarefas_arquivadas': TarefaPessoal.objects.filter(
+            concluida=True,
+        ).prefetch_related('comentarios').order_by('-concluida_em', '-data_conclusao'),
         'hoje': date.today(),
     })
 
@@ -1020,6 +1023,19 @@ def concluir_tarefa_pessoal(request, tarefa_id):
     tarefa.save(update_fields=['concluida', 'concluida_em'])
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'ok': True})
+    return redirect('area_gabriel')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def reabrir_tarefa_pessoal(request, tarefa_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    tarefa = get_object_or_404(TarefaPessoal, id=tarefa_id)
+    tarefa.concluida = False
+    tarefa.concluida_em = None
+    tarefa.save(update_fields=['concluida', 'concluida_em'])
+    messages.success(request, 'Tarefa reaberta e devolvida ao checklist.')
     return redirect('area_gabriel')
 
 
