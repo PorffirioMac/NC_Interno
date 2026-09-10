@@ -6,14 +6,15 @@ import tempfile
 from django.contrib.auth.models import User
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth.hashers import check_password, make_password
 from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
-    AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
-    AnexoTicket, Cliente, Comment, Comunicacao,
+    AcessoAreaGabriel, AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
+    AnexoTicket, Cliente, Comment, ComentarioTarefaPessoal, Comunicacao,
     ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira, DespesaFinanceira,
     ErroConhecido, Notificacao,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
@@ -1461,18 +1462,68 @@ class AreaGabrielTests(TestCase):
         resposta = self.client.get(reverse('area_gabriel'))
         self.assertEqual(resposta.status_code, 403)
 
-    def test_area_exige_senha_e_desbloqueia_por_sessao(self):
+    def test_area_cadastra_pin_e_desbloqueia_por_duas_horas(self):
         self.client.force_login(self.gabriel)
         bloqueada = self.client.get(reverse('area_gabriel'))
-        self.assertContains(bloqueada, 'Confirmar acesso')
+        self.assertContains(bloqueada, 'Cadastrar PIN')
 
         resposta = self.client.post(reverse('area_gabriel'), {
-            'desbloquear_area': '1',
-            'senha': 'senha-segura',
+            'cadastrar_pin': '1',
+            'senha_atual': 'senha-segura',
+            'pin': '4826',
+            'confirmar_pin': '4826',
         })
         self.assertRedirects(resposta, reverse('area_gabriel'))
+        configuracao = AcessoAreaGabriel.objects.get(usuario=self.gabriel)
+        self.assertNotEqual(configuracao.pin_hash, '4826')
+        self.assertGreater(
+            self.client.session['area_gabriel_pin_ate'],
+            timezone.now().timestamp() + 7100,
+        )
         liberada = self.client.get(reverse('area_gabriel'))
         self.assertContains(liberada, 'Minha organização')
+
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = 0
+        sessao.save()
+        resposta_pin = self.client.post(reverse('area_gabriel'), {
+            'desbloquear_area': '1',
+            'pin': '4826',
+        })
+        self.assertRedirects(resposta_pin, reverse('area_gabriel'))
+
+    def test_pin_pode_ser_alterado_e_redefinido_com_a_senha(self):
+        configuracao = AcessoAreaGabriel.objects.create(
+            usuario=self.gabriel,
+            pin_hash=make_password('1111'),
+        )
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+
+        resposta = self.client.post(reverse('area_gabriel'), {
+            'alterar_pin': '1',
+            'pin_atual': '1111',
+            'novo_pin': '2222',
+            'confirmar_pin': '2222',
+        })
+        self.assertRedirects(resposta, reverse('area_gabriel'))
+        configuracao.refresh_from_db()
+        self.assertTrue(check_password('2222', configuracao.pin_hash))
+
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = 0
+        sessao.save()
+        resposta = self.client.post(reverse('area_gabriel'), {
+            'redefinir_pin': '1',
+            'senha_atual': 'senha-segura',
+            'novo_pin': '3333',
+            'confirmar_pin': '3333',
+        })
+        self.assertRedirects(resposta, reverse('area_gabriel'))
+        configuracao.refresh_from_db()
+        self.assertTrue(check_password('3333', configuracao.pin_hash))
 
     def test_kanban_exibe_somente_ticket_tecnico_atribuido_ao_gabriel(self):
         ticket_gabriel = Task.objects.create(
@@ -1492,7 +1543,7 @@ class AreaGabrielTests(TestCase):
         )
         self.client.force_login(self.gabriel)
         sessao = self.client.session
-        sessao['area_gabriel_ate'] = timezone.now().timestamp() + 1800
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
         sessao.save()
 
         resposta = self.client.get(reverse('area_gabriel'))
@@ -1525,6 +1576,37 @@ class AreaGabrielTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         lembrete.refresh_from_db()
         self.assertTrue(lembrete.concluida)
+
+    def test_comentarios_da_tarefa_pessoal_podem_ser_criados_editados_e_excluidos(self):
+        tarefa = TarefaPessoal.objects.create(
+            titulo='Organizar documentos',
+            area='gabriel',
+            data_conclusao=date.today(),
+        )
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+
+        self.client.post(
+            reverse('adicionar_comentario_tarefa_pessoal', args=[tarefa.id]),
+            {'texto': 'Primeira observação'},
+        )
+        comentario = ComentarioTarefaPessoal.objects.get(tarefa=tarefa)
+        self.client.post(
+            reverse('editar_comentario_tarefa_pessoal', args=[comentario.id]),
+            {'texto': 'Observação revisada'},
+        )
+        comentario.refresh_from_db()
+        self.assertEqual(comentario.texto, 'Observação revisada')
+        self.assertIsNotNone(comentario.editado_em)
+
+        pagina = self.client.get(reverse('area_gabriel'))
+        self.assertContains(pagina, 'Observação revisada')
+        self.client.post(
+            reverse('excluir_comentario_tarefa_pessoal', args=[comentario.id]),
+        )
+        self.assertFalse(ComentarioTarefaPessoal.objects.filter(id=comentario.id).exists())
 
 
 class BuscaGlobalTests(TestCase):

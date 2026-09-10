@@ -13,9 +13,6 @@
     <a href="{% url 'financeiro' %}" {% if pagina == 'financeiro' %}class="active"{% endif %}>💰 Financeiro</a>
     {% endif %}
     <a href="{% url 'rotina' %}" {% if pagina == 'rotina' %}class="active"{% endif %}>✅ Rotina</a>
-    {% if request.user.username == 'gabriel.porfirio' %}
-    <a href="{% url 'area_gabriel' %}" {% if pagina == 'area_gabriel' %}class="active"{% endif %}>🔒 Gabriel</a>
-    {% endif %}
     <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
     <a href="{% url 'procedimentos_internos' %}" {% if pagina == 'procedimentos_internos' or pagina == 'criar_procedimento' or pagina == 'editar_procedimento' or pagina == 'detalhes_procedimento' %}class="active"{% endif %}>📚 Procedimentos</a>
     <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
@@ -23,6 +20,9 @@
     <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
     <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
     <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
+    {% if request.user.username == 'gabriel.porfirio' %}
+    <a href="{% url 'area_gabriel' %}" {% if pagina == 'area_gabriel' %}class="active"{% endif %}>🔒 Gabriel</a>
+    {% endif %}
     <form class="global-search" action="{% url 'busca_global' %}" method="get" role="search">
         <span aria-hidden="true">⌕</span>
         <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Busca global" aria-label="Buscar em todo o sistema" required>

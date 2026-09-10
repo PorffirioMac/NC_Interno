@@ -10,6 +10,13 @@
         .gabriel-page { max-width: 1500px; margin: 26px auto; padding: 0 20px 50px; }
         .private-heading { margin-bottom: 22px; }
         .private-heading p { margin-top: 6px; color: var(--text-muted) !important; }
+        .private-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+        .pin-settings { position: relative; }
+        .pin-settings > summary { padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-strong); color: var(--primary); font-size: 12px; font-weight: 800; cursor: pointer; list-style: none; }
+        .pin-settings > summary::-webkit-details-marker { display: none; }
+        .pin-settings form { position: absolute; z-index: 20; top: calc(100% + 7px); right: 0; width: 290px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-strong); box-shadow: var(--shadow); }
+        .pin-settings label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 700; }
+        .pin-settings input { width: 100%; margin-bottom: 10px; padding: 9px; }
         .private-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
         .private-section { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
         .private-section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -35,6 +42,24 @@
         .simple-task form { margin: 0; }
         .check-button, .delete-button { border: 0; background: transparent; cursor: pointer; font-size: 18px; box-shadow: none !important; }
         .delete-button { color: #d13b3b; font-size: 14px; }
+        .task-history-open { padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; box-shadow: none !important; }
+        .task-history-open:hover { color: var(--primary); text-decoration: underline; }
+        .task-history-dialog { width: min(680px, calc(100% - 28px)); max-height: 85vh; margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-strong); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.45); }
+        .task-history-dialog::backdrop { background: rgba(3,8,16,.68); backdrop-filter: blur(3px); }
+        .task-history-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .task-history-head small { color: var(--text-muted); }
+        .task-history-close { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--surface-muted); color: var(--text); font-size: 22px; cursor: pointer; box-shadow: none !important; }
+        .task-history-list { max-height: 42vh; padding: 18px 22px; overflow-y: auto; }
+        .task-comment { padding: 13px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+        .task-comment-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text-muted); font-size: 11px; }
+        .task-comment-meta form { margin: 0; }
+        .task-comment-meta button { padding: 0; border: 0; background: transparent; color: #d13b3b; font-size: 11px; cursor: pointer; box-shadow: none !important; }
+        .task-comment p { margin: 9px 0; line-height: 1.5; }
+        .task-comment details summary { color: var(--primary); font-size: 12px; cursor: pointer; }
+        .task-comment details form { margin-top: 9px; }
+        .task-comment textarea, .task-comment-add textarea { width: 100%; min-height: 90px; margin: 7px 0 9px; padding: 10px; resize: vertical; }
+        .task-comment-add { padding: 18px 22px 22px; border-top: 1px solid var(--border); background: var(--surface); }
+        .task-comment-add label { display: block; font-weight: 700; }
         @media (max-width: 1100px) { .private-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 720px) { .private-columns { grid-template-columns: 1fr; } .simple-add { grid-template-columns: 1fr; } .simple-add input[name="titulo"] { grid-column: auto; } }
     </style>
@@ -43,7 +68,7 @@
     <header class="topo"><h2>🔒 Gabriel</h2></header>
     {% include 'app/base_nav_snippet.html' %}
     <main class="gabriel-page">
-        <div class="private-heading"><h1>Minha organização</h1><p>Tickets da NetCamp sincronizados e lembretes pessoais em um único lugar.</p></div>
+        <div class="private-heading private-heading-row"><div><h1>Minha organização</h1><p>Tickets da NetCamp sincronizados e lembretes pessoais em um único lugar.</p></div><details class="pin-settings"><summary>Alterar PIN</summary><form method="post">{% csrf_token %}<input type="hidden" name="alterar_pin" value="1"><label>PIN atual</label><input type="password" name="pin_atual" inputmode="numeric" minlength="4" maxlength="8" required><label>Novo PIN</label><input type="password" name="novo_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required><label>Confirmar novo PIN</label><input type="password" name="confirmar_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required><button class="btn" type="submit">Salvar novo PIN</button></form></details></div>
         {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
 
         <div class="private-columns">
@@ -77,5 +102,23 @@
         </section>
         </div>
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.task-history-open').forEach(function (botao) {
+                botao.addEventListener('click', function () {
+                    document.getElementById(botao.dataset.dialog).showModal();
+                });
+            });
+            document.querySelectorAll('.task-history-dialog').forEach(function (dialogo) {
+                dialogo.querySelector('.task-history-close').addEventListener('click', function () { dialogo.close(); });
+                dialogo.addEventListener('click', function (evento) {
+                    if (evento.target === dialogo) dialogo.close();
+                });
+            });
+            const tarefaAberta = new URLSearchParams(window.location.search).get('tarefa');
+            const dialogoInicial = tarefaAberta && document.getElementById('historico-' + tarefaAberta);
+            if (dialogoInicial) dialogoInicial.showModal();
+        });
+    </script>
 </body>
 </html>

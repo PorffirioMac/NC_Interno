@@ -370,6 +370,33 @@ class TarefaPessoal(models.Model):
         return self.titulo
 
 
+class ComentarioTarefaPessoal(models.Model):
+    tarefa = models.ForeignKey(
+        TarefaPessoal,
+        on_delete=models.CASCADE,
+        related_name='comentarios',
+    )
+    texto = models.TextField('Comentário')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    editado_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'Comentário em {self.tarefa}'
+
+
+class AcessoAreaGabriel(models.Model):
+    usuario = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='acesso_area_gabriel',
+    )
+    pin_hash = models.CharField(max_length=128)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+
 class AnexoTicket(models.Model):
     tarefa = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='anexos')
     arquivo = models.FileField(upload_to='tickets/anexos/%Y/%m/')

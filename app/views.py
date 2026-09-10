@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import authenticate, logout
 from django.core.exceptions import PermissionDenied
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -21,7 +22,7 @@ from .forms import (
 )
 from .models import (
     AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
-    AnexoTicket, Cliente, ComentarioSolicitacao,
+    AcessoAreaGabriel, AnexoTicket, Cliente, ComentarioSolicitacao, ComentarioTarefaPessoal,
     Comunicacao, ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira,
     DespesaFinanceira, ErroConhecido,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
@@ -38,7 +39,7 @@ EXTENSOES_ANEXOS_PERMITIDAS = {
 }
 TAMANHO_MAXIMO_ANEXO = 20 * 1024 * 1024
 USUARIO_AREA_GABRIEL = 'gabriel.porfirio'
-TEMPO_AREA_GABRIEL = 30 * 60
+TEMPO_AREA_GABRIEL = 2 * 60 * 60
 
 
 def sair(request):
@@ -58,7 +59,7 @@ def _pode_acessar_area_gabriel(usuario):
 
 
 def _area_gabriel_desbloqueada(request):
-    return request.session.get('area_gabriel_ate', 0) > timezone.now().timestamp()
+    return request.session.get('area_gabriel_pin_ate', 0) > timezone.now().timestamp()
 
 
 def notificar_atribuicao(tarefa, destinatario, ator):
@@ -893,23 +894,85 @@ def area_gabriel(request):
     if not _pode_acessar_area_gabriel(request.user):
         raise PermissionDenied
 
+    configuracao = AcessoAreaGabriel.objects.filter(
+        usuario=request.user,
+    ).first()
     if not _area_gabriel_desbloqueada(request):
-        erro_senha = ''
-        if request.method == 'POST' and 'desbloquear_area' in request.POST:
+        erro_acesso = ''
+        if request.method == 'POST' and 'cadastrar_pin' in request.POST and not configuracao:
+            senha_atual = request.POST.get('senha_atual', '')
+            pin = request.POST.get('pin', '').strip()
+            confirmar_pin = request.POST.get('confirmar_pin', '').strip()
             usuario = authenticate(
                 request,
                 username=request.user.username,
-                password=request.POST.get('senha', ''),
+                password=senha_atual,
             )
-            if usuario is not None:
-                request.session['area_gabriel_ate'] = (
+            if usuario is None:
+                erro_acesso = 'Senha atual incorreta.'
+            elif not pin.isdigit() or not 4 <= len(pin) <= 8:
+                erro_acesso = 'O PIN deve conter entre 4 e 8 números.'
+            elif pin != confirmar_pin:
+                erro_acesso = 'A confirmação do PIN não confere.'
+            else:
+                AcessoAreaGabriel.objects.create(
+                    usuario=request.user,
+                    pin_hash=make_password(pin),
+                )
+                request.session['area_gabriel_pin_ate'] = (
                     timezone.now().timestamp() + TEMPO_AREA_GABRIEL
                 )
                 return redirect('area_gabriel')
-            erro_senha = 'Senha incorreta.'
+        elif request.method == 'POST' and 'redefinir_pin' in request.POST and configuracao:
+            usuario = authenticate(
+                request,
+                username=request.user.username,
+                password=request.POST.get('senha_atual', ''),
+            )
+            pin = request.POST.get('novo_pin', '').strip()
+            confirmar_pin = request.POST.get('confirmar_pin', '').strip()
+            if usuario is None:
+                erro_acesso = 'Senha atual incorreta.'
+            elif not pin.isdigit() or not 4 <= len(pin) <= 8:
+                erro_acesso = 'O PIN deve conter entre 4 e 8 números.'
+            elif pin != confirmar_pin:
+                erro_acesso = 'A confirmação do PIN não confere.'
+            else:
+                configuracao.pin_hash = make_password(pin)
+                configuracao.save(update_fields=['pin_hash', 'atualizado_em'])
+                request.session['area_gabriel_pin_ate'] = (
+                    timezone.now().timestamp() + TEMPO_AREA_GABRIEL
+                )
+                messages.success(request, 'PIN redefinido com sucesso!')
+                return redirect('area_gabriel')
+        elif request.method == 'POST' and 'desbloquear_area' in request.POST and configuracao:
+            pin = request.POST.get('pin', '').strip()
+            if check_password(pin, configuracao.pin_hash):
+                request.session['area_gabriel_pin_ate'] = (
+                    timezone.now().timestamp() + TEMPO_AREA_GABRIEL
+                )
+                return redirect('area_gabriel')
+            erro_acesso = 'PIN incorreto.'
         return render(request, 'app/area_gabriel_senha.html', {
-            'erro_senha': erro_senha,
+            'erro_acesso': erro_acesso,
+            'pin_cadastrado': configuracao is not None,
         })
+
+    if request.method == 'POST' and 'alterar_pin' in request.POST:
+        pin_atual = request.POST.get('pin_atual', '').strip()
+        novo_pin = request.POST.get('novo_pin', '').strip()
+        confirmar_pin = request.POST.get('confirmar_pin', '').strip()
+        if not configuracao or not check_password(pin_atual, configuracao.pin_hash):
+            messages.error(request, 'PIN atual incorreto.')
+        elif not novo_pin.isdigit() or not 4 <= len(novo_pin) <= 8:
+            messages.error(request, 'O novo PIN deve conter entre 4 e 8 números.')
+        elif novo_pin != confirmar_pin:
+            messages.error(request, 'A confirmação do novo PIN não confere.')
+        else:
+            configuracao.pin_hash = make_password(novo_pin)
+            configuracao.save(update_fields=['pin_hash', 'atualizado_em'])
+            messages.success(request, 'PIN alterado com sucesso!')
+        return redirect('area_gabriel')
 
     if request.method == 'POST' and 'criar_tarefa_pessoal' in request.POST:
         titulo = request.POST.get('titulo', '').strip()
@@ -940,8 +1003,8 @@ def area_gabriel(request):
     return render(request, 'app/area_gabriel.html', {
         'tickets_netcamp': tickets_netcamp,
         'fases_netcamp': dict(Task.FASES_TICKETS),
-        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba'),
-        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel'),
+        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba').prefetch_related('comentarios'),
+        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel').prefetch_related('comentarios'),
         'hoje': date.today(),
     })
 
@@ -968,6 +1031,50 @@ def excluir_tarefa_pessoal(request, tarefa_id):
     get_object_or_404(TarefaPessoal, id=tarefa_id).delete()
     messages.success(request, 'Lembrete excluído.')
     return redirect('area_gabriel')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def adicionar_comentario_tarefa_pessoal(request, tarefa_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    tarefa = get_object_or_404(TarefaPessoal, id=tarefa_id)
+    texto = request.POST.get('texto', '').strip()
+    if texto:
+        ComentarioTarefaPessoal.objects.create(tarefa=tarefa, texto=texto)
+        messages.success(request, 'Comentário adicionado.')
+    else:
+        messages.error(request, 'O comentário não pode ficar vazio.')
+    return redirect(f"{reverse('area_gabriel')}?tarefa={tarefa.id}")
+
+
+@login_required(login_url='/login/')
+@require_POST
+def editar_comentario_tarefa_pessoal(request, comentario_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    comentario = get_object_or_404(ComentarioTarefaPessoal, id=comentario_id)
+    texto = request.POST.get('texto', '').strip()
+    if texto:
+        comentario.texto = texto
+        comentario.editado_em = timezone.now()
+        comentario.save(update_fields=['texto', 'editado_em'])
+        messages.success(request, 'Comentário atualizado.')
+    else:
+        messages.error(request, 'O comentário não pode ficar vazio.')
+    return redirect(f"{reverse('area_gabriel')}?tarefa={comentario.tarefa_id}")
+
+
+@login_required(login_url='/login/')
+@require_POST
+def excluir_comentario_tarefa_pessoal(request, comentario_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    comentario = get_object_or_404(ComentarioTarefaPessoal, id=comentario_id)
+    tarefa_id = comentario.tarefa_id
+    comentario.delete()
+    messages.success(request, 'Comentário excluído.')
+    return redirect(f"{reverse('area_gabriel')}?tarefa={tarefa_id}")
 
 
 @login_required(login_url='/login/')

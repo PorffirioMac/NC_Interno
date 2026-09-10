@@ -16,6 +16,9 @@
         .private-lock input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 9px; }
         .private-lock .btn { width: 100%; padding: 12px; }
         .private-error { margin-top: 12px; color: #e03131 !important; }
+        .pin-recovery { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .pin-recovery summary { color: var(--primary); font-weight: 700; cursor: pointer; }
+        .pin-recovery p { margin: 10px 0; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -23,15 +26,42 @@
     {% include 'app/base_nav_snippet.html' %}
     <main class="private-lock">
         <div class="private-lock-icon">🔐</div>
-        <h1>Confirmar acesso</h1>
-        <p>Digite novamente sua senha para acessar sua área privada. O acesso ficará liberado por 30 minutos.</p>
-        {% if erro_senha %}<p class="private-error">{{ erro_senha }}</p>{% endif %}
+        {% if pin_cadastrado %}
+        <h1>Digite seu PIN</h1>
+        <p>Use o PIN cadastrado para acessar sua área privada. O acesso ficará liberado por 2 horas.</p>
+        {% else %}
+        <h1>Cadastrar PIN</h1>
+        <p>Confirme sua senha atual e escolha um PIN numérico de 4 a 8 dígitos. Ele será armazenado de forma protegida.</p>
+        {% endif %}
+        {% if erro_acesso %}<p class="private-error">{{ erro_acesso }}</p>{% endif %}
         <form method="post">
             {% csrf_token %}
+            {% if pin_cadastrado %}
             <input type="hidden" name="desbloquear_area" value="1">
-            <label for="senha-area">Senha</label>
-            <input id="senha-area" type="password" name="senha" autocomplete="current-password" required autofocus>
+            <label for="pin-area">PIN</label>
+            <input id="pin-area" type="password" name="pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="off" required autofocus>
             <button class="btn" type="submit">Desbloquear área</button>
+            <details class="pin-recovery">
+                <summary>Esqueci meu PIN</summary>
+                <p>Confirme sua senha da conta para cadastrar um novo PIN.</p>
+                <label for="senha-recuperacao">Senha atual</label>
+                <input id="senha-recuperacao" type="password" name="senha_atual" autocomplete="current-password">
+                <label for="pin-recuperacao">Novo PIN</label>
+                <input id="pin-recuperacao" type="password" name="novo_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password">
+                <label for="confirmar-recuperacao">Confirmar novo PIN</label>
+                <input id="confirmar-recuperacao" type="password" name="confirmar_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password">
+                <button class="btn" type="submit" name="redefinir_pin" value="1" formnovalidate>Redefinir PIN</button>
+            </details>
+            {% else %}
+            <input type="hidden" name="cadastrar_pin" value="1">
+            <label for="senha-atual">Senha atual</label>
+            <input id="senha-atual" type="password" name="senha_atual" autocomplete="current-password" required autofocus>
+            <label for="novo-pin">Novo PIN</label>
+            <input id="novo-pin" type="password" name="pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" required>
+            <label for="confirmar-pin">Confirmar PIN</label>
+            <input id="confirmar-pin" type="password" name="confirmar_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" required>
+            <button class="btn" type="submit">Cadastrar e desbloquear</button>
+            {% endif %}
         </form>
     </main>
 </body>
