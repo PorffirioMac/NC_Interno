@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from .models import (
     Cliente, DespesaFinanceira, ErroConhecido, ProcedimentoInterno, Release,
-    Rotina, SolicitacaoRelease,
+    Rotina, SolicitacaoRelease, SugestaoDesenvolvimento,
 )
 
 
@@ -107,6 +107,28 @@ class ProcedimentoInternoForm(forms.ModelForm):
             'conteudo': forms.Textarea(attrs={
                 'rows': 18,
                 'placeholder': 'Descreva o procedimento do começo ao fim.',
+            }),
+        }
+
+
+class SugestaoDesenvolvimentoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by(
+            'nome_fantasia',
+        )
+        self.fields['cliente'].empty_label = 'Sem cliente vinculado'
+
+    class Meta:
+        model = SugestaoDesenvolvimento
+        fields = ['titulo', 'modulo', 'cliente', 'descricao']
+        widgets = {
+            'titulo': forms.TextInput(attrs={
+                'placeholder': 'Resuma a sugestão em um título claro',
+            }),
+            'descricao': forms.Textarea(attrs={
+                'rows': 12,
+                'placeholder': 'Descreva detalhadamente a necessidade e o resultado esperado.',
             }),
         }
 

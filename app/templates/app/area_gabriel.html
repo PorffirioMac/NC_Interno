@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gabriel - NC Interno</title>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-3">
+    <script src="/static/app/theme.js?v=20260910-3"></script>
+    <style>
+        .gabriel-page { max-width: 1500px; margin: 26px auto; padding: 0 20px 50px; }
+        .private-heading { margin-bottom: 22px; }
+        .private-heading p { margin-top: 6px; color: var(--text-muted) !important; }
+        .private-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
+        .private-section { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+        .private-section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .netcamp-queue { display: grid; gap: 12px; }
+        .netcamp-queue .card { margin: 0; padding: 16px 18px; border-radius: 11px; }
+        .netcamp-ticket-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .netcamp-ticket-head h4 { margin: 0; }
+        .netcamp-ticket-tags { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+        .phase-badge { display: inline-flex; padding: 4px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-muted); color: var(--text-muted); font-size: 11px; font-weight: 700; }
+        .netcamp-queue .card p, .netcamp-queue .meta { margin-top: 8px; color: var(--text-muted) !important; font-size: 12px; }
+        .private-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+        .private-card-actions a { color: var(--primary); font-size: 12px; text-decoration: none; }
+        .simple-list h2 { margin-bottom: 5px; }
+        .simple-list > p { margin-bottom: 16px; color: var(--text-muted) !important; font-size: 13px; }
+        .simple-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 16px; }
+        .simple-add input[name="titulo"] { grid-column: 1 / -1; }
+        .simple-add input { min-width: 0; margin: 0 !important; padding: 10px; }
+        .simple-task { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+        .simple-task:last-child { border-bottom: 0; }
+        .simple-task.done strong { text-decoration: line-through; color: var(--text-muted) !important; }
+        .simple-task small { display: block; margin-top: 3px; color: var(--text-muted); }
+        .simple-task.overdue:not(.done) small { color: #e03131; font-weight: 700; }
+        .simple-task form { margin: 0; }
+        .check-button, .delete-button { border: 0; background: transparent; cursor: pointer; font-size: 18px; box-shadow: none !important; }
+        .delete-button { color: #d13b3b; font-size: 14px; }
+        @media (max-width: 1100px) { .private-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 720px) { .private-columns { grid-template-columns: 1fr; } .simple-add { grid-template-columns: 1fr; } .simple-add input[name="titulo"] { grid-column: auto; } }
+    </style>
+</head>
+<body>
+    <header class="topo"><h2>🔒 Gabriel</h2></header>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="gabriel-page">
+        <div class="private-heading"><h1>Minha organização</h1><p>Tickets da NetCamp sincronizados e lembretes pessoais em um único lugar.</p></div>
+        {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
+
+        <div class="private-columns">
+        <section class="private-section">
+            <div class="private-section-head"><div><h2>🛠 NetCamp</h2><p>Tickets técnicos atribuídos a você</p></div><a class="btn" href="{% url 'criar_tarefa' %}">+ Novo ticket</a></div>
+            <div class="netcamp-queue">
+                        {% for ticket in tickets_netcamp %}
+                        <article class="card prioridade-{{ ticket.prioridade }}">
+                            <div class="netcamp-ticket-head"><h4>{{ ticket.titulo }}</h4><span class="phase-badge">{{ ticket.get_fase_display }}</span></div>
+                            <div class="netcamp-ticket-tags">
+                            <span class="priority-badge prioridade-{{ ticket.prioridade }}">{{ ticket.get_prioridade_display }}</span>
+                            <span class="phase-badge">{{ ticket.get_status_display }}</span>
+                            </div>
+                            <p>{{ ticket.cliente.nome_fantasia|default:'Sem cliente' }}</p>
+                            <div class="meta">Prazo: {{ ticket.prazo|date:'d/m/Y'|default:'—' }}</div>
+                            <div class="private-card-actions"><a href="{% url 'detalhes_tarefa' ticket.id %}">Ver detalhes</a><a href="{% url 'encerrar_tarefa' ticket.id %}" onclick="return confirm('Encerrar este ticket?')">Encerrar</a></div>
+                        </article>
+                        {% empty %}<p class="search-empty">Você não possui tickets técnicos pendentes.</p>{% endfor %}
+            </div>
+        </section>
+
+        <section class="private-section simple-list">
+                <h2>🍜 Casa do Yakisoba</h2><p>Checklist de tarefas do restaurante</p>
+                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="casa_yakisoba"><input name="titulo" placeholder="Nova tarefa" required><input type="date" name="data_conclusao" required><button class="btn" type="submit">Adicionar</button></form>
+                    {% for item in tarefas_casa %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
+        </section>
+        <section class="private-section simple-list">
+                <h2>👤 Gabriel</h2><p>Checklist de lembretes pessoais</p>
+                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="gabriel"><input name="titulo" placeholder="Novo lembrete" required><input type="date" name="data_conclusao" required><button class="btn" type="submit">Adicionar</button></form>
+                    {% for item in tarefas_gabriel %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
+        </section>
+        </div>
+    </main>
+</body>
+</html>

@@ -5,7 +5,8 @@ from django import template
 from django.db.models import Max
 
 from app.models import (
-    ComunicacaoDestinatario, DespesaFinanceira, Notificacao, Task,
+    ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira,
+    DespesaFinanceira, Notificacao, Task, TarefaPessoal,
 )
 from app.rotinas import periodo_referencia, rotinas_pendentes_usuario
 
@@ -31,6 +32,24 @@ def painel_notificacoes(context):
         return {}
 
     hoje = date.today()
+    tarefas_pessoais = []
+    if (
+        request.user.username == 'gabriel.porfirio'
+        and (
+            request.user.is_superuser
+            or request.user.has_perm('app.acessar_area_gabriel')
+        )
+    ):
+        tarefas_pessoais = list(
+            TarefaPessoal.objects.filter(
+                concluida=False,
+                data_conclusao__lte=hoje,
+            ).order_by('data_conclusao', 'area', 'titulo')
+        )
+    marcador_pessoal = max(
+        (item.data_conclusao.toordinal() * 1_000_000 + item.id for item in tarefas_pessoais),
+        default=0,
+    )
     prazos = list(
         Task.objects.filter(
             responsavel=request.user,
@@ -75,6 +94,10 @@ def painel_notificacoes(context):
     ultima_comunicacao_id = comunicacoes_query.aggregate(id=Max('id'))['id'] or 0
     despesas_hoje = []
     if request.user.has_perm('app.acessar_financeiro'):
+        confirmadas = ConfirmacaoDespesaFinanceira.objects.filter(
+            usuario=request.user,
+            competencia=hoje.replace(day=1),
+        ).values_list('despesa_id', flat=True)
         ultimo_dia = monthrange(hoje.year, hoje.month)[1]
         filtro_dia = (
             {'dia_vencimento__gte': hoje.day}
@@ -82,7 +105,10 @@ def painel_notificacoes(context):
             else {'dia_vencimento': hoje.day}
         )
         despesas_hoje = list(
-            DespesaFinanceira.objects.filter(ativa=True, **filtro_dia)
+            DespesaFinanceira.objects.filter(
+                ativa=True,
+                **filtro_dia,
+            ).exclude(id__in=confirmadas)
         )
     ultima_despesa_id = max(
         (despesa.id for despesa in despesas_hoje),
@@ -107,19 +133,23 @@ def painel_notificacoes(context):
         'painel_comunicacoes': comunicacoes,
         'painel_despesas_hoje': despesas_hoje,
         'painel_rotinas_pendentes': rotinas_pendentes,
+        'painel_tarefas_pessoais': tarefas_pessoais,
         'painel_total_alertas': (
             len(prazos) + nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
             + len(tickets_plantao)
+            + len(tarefas_pessoais)
         ),
         'painel_total_novas': (
             nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
             + len(tickets_plantao)
+            + len(tarefas_pessoais)
         ),
         'painel_assinatura_novas': (
             f'{ultima_notificacao_id}:{ultima_comunicacao_id}:'
-            f'{ultima_despesa_id}:{marcador_rotina}:{marcador_plantao}'
+            f'{ultima_despesa_id}:{marcador_rotina}:{marcador_plantao}:'
+            f'{marcador_pessoal}'
         ),
         'painel_hoje': hoje,
     }

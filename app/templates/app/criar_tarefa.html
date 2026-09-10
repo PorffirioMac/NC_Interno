@@ -9,19 +9,34 @@
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
         .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
         .topo h2 { font-size: 22px; }
-        .container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
-        .card { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .card h1 { font-size: 22px; color: #333; margin-bottom: 24px; }
-        form { display: flex; flex-direction: column; gap: 16px; }
-        label { font-weight: 600; color: #555; font-size: 14px; }
-        input, select, textarea { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-        textarea { min-height: 100px; resize: vertical; }
+        .container { max-width: 1100px; margin: 32px auto; padding: 0 28px 40px; }
+        .card { background: var(--surface-strong, white); border: 1px solid var(--border, #ddd); border-radius: 14px; padding: 34px; box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.06)); }
+        .card h1 { font-size: 24px; color: var(--text, #333); margin-bottom: 26px; }
+        form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+        .campo { min-width: 0; }
+        .campo-largo { grid-column: 1 / -1; }
+        label { display: block; margin-bottom: 7px; font-weight: 600; color: var(--text-muted, #555); font-size: 14px; }
+        input, select, textarea { display: block; width: 100%; padding: 11px 12px; border: 1px solid var(--border, #ddd); border-radius: 8px; background: var(--surface, white); color: var(--text, #222); font: inherit; font-size: 14px; }
+        input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--primary, #1a73e8) 30%, transparent); border-color: var(--primary, #1a73e8); }
+        textarea { min-height: 230px; line-height: 1.5; resize: vertical; }
         .btn { background: #1a73e8; color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
         .btn:hover { background: #1557b0; }
         .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .cliente-busca { position: relative; }
+        .cliente-opcoes { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; right: 0; max-height: 260px; overflow-y: auto; padding: 6px; background: var(--surface-strong, white); border: 1px solid var(--border, #ddd); border-radius: 9px; box-shadow: var(--shadow, 0 8px 20px rgba(0,0,0,.14)); }
+        .cliente-opcao { display: block; width: 100%; padding: 10px 11px; border: 0; border-radius: 6px; background: transparent; color: var(--text, #222); text-align: left; cursor: pointer; }
+        .cliente-opcao:hover, .cliente-opcao.ativa { background: var(--primary-soft, #e8f1fc); }
+        .cliente-vazio { padding: 12px; color: var(--text-muted, #666); font-size: 14px; }
+        .btn { grid-column: 1 / -1; margin-top: 4px; }
+        @media (max-width: 720px) {
+            .container { padding: 0 14px 28px; margin-top: 22px; }
+            .card { padding: 22px 18px; }
+            form { grid-template-columns: 1fr; }
+            .campo-largo, .btn { grid-column: auto; }
+        }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
-    <script src="/static/app/theme.js?v=20260805-1"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
+    <script src="/static/app/theme.js?v=20260910-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -35,13 +50,13 @@
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="area" value="{{ area }}">
-                <div>
+                <div class="campo campo-largo">
                     <label>Título</label>
-                    <input type="text" name="titulo" required>
+                    <input type="text" name="titulo" value="{{ request.POST.titulo }}" required>
                 </div>
-                <div>
+                <div class="campo campo-largo">
                     <label>Descrição</label>
-                    <textarea name="descricao"></textarea>
+                    <textarea name="descricao" placeholder="Descreva a solicitação com todos os detalhes necessários...">{{ request.POST.descricao }}</textarea>
                 </div>
                 <div>
                     <label>Módulo</label>
@@ -69,12 +84,17 @@
                 </div>
                 <div>
                     <label>Cliente</label>
-                    <select name="cliente">
-                        <option value="">— Sem cliente vinculado —</option>
+                    <div class="cliente-busca" id="clienteBusca">
+                        <input type="search" id="clienteTexto" placeholder="Digite o ID, nome fantasia ou razão social" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="clienteOpcoes" aria-expanded="false">
+                        <input type="hidden" name="cliente" id="clienteValor" value="{{ request.POST.cliente }}">
+                        <div class="cliente-opcoes" id="clienteOpcoes" role="listbox" hidden>
+                        <button type="button" class="cliente-opcao" data-id="" data-label="Sem cliente vinculado" data-search="sem cliente vinculado">— Sem cliente vinculado —</button>
                         {% for cliente in clientes %}
-                        <option value="{{ cliente.id }}">{{ cliente.nome_fantasia }}</option>
+                        <button type="button" class="cliente-opcao" data-id="{{ cliente.id }}" data-label="{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}" data-search="{{ cliente.codigo }} {{ cliente.nome_fantasia }} {{ cliente.razao_social }}">{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}</button>
                         {% endfor %}
-                    </select>
+                        <div class="cliente-vazio" id="clienteVazio" hidden>Nenhum cliente encontrado.</div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label>Prazo de conclusão</label>
@@ -89,20 +109,81 @@
                         <option value="urgente">Urgente</option>
                     </select>
                 </div>
-                {% if users %}
                 <div>
                     <label>Responsável</label>
                     <select name="responsavel">
-                        <option value="">— Sem responsável —</option>
-                        {% for user in users %}
-                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        <option value="">{% if user.is_superuser %}— Sem responsável —{% else %}Eu mesmo ({{ user.username }}){% endif %}</option>
+                        {% for usuario_opcao in users %}
+                        <option value="{{ usuario_opcao.id }}" {% if request.POST.responsavel == usuario_opcao.id|stringformat:"s" %}selected{% endif %}>{{ usuario_opcao.get_full_name|default:usuario_opcao.username }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                {% endif %}
                 <button type="submit" class="btn">{% if area == 'comercial' %}Criar Tarefa Comercial{% else %}Criar Ticket{% endif %}</button>
             </form>
         </div>
     </div>
+    <script>
+        (() => {
+            const busca = document.getElementById('clienteBusca');
+            const texto = document.getElementById('clienteTexto');
+            const valor = document.getElementById('clienteValor');
+            const lista = document.getElementById('clienteOpcoes');
+            const vazio = document.getElementById('clienteVazio');
+            const opcoes = [...lista.querySelectorAll('.cliente-opcao')];
+            let indiceAtivo = -1;
+
+            const normalizar = (conteudo) => conteudo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const abrir = () => { lista.hidden = false; texto.setAttribute('aria-expanded', 'true'); };
+            const fechar = () => { lista.hidden = true; texto.setAttribute('aria-expanded', 'false'); indiceAtivo = -1; };
+            const visiveis = () => opcoes.filter((opcao) => !opcao.hidden);
+            const destacar = (indice) => {
+                const itens = visiveis();
+                opcoes.forEach((opcao) => opcao.classList.remove('ativa'));
+                if (!itens.length) return;
+                indiceAtivo = (indice + itens.length) % itens.length;
+                itens[indiceAtivo].classList.add('ativa');
+                itens[indiceAtivo].scrollIntoView({ block: 'nearest' });
+            };
+            const selecionar = (opcao) => {
+                valor.value = opcao.dataset.id;
+                texto.value = opcao.dataset.id ? opcao.dataset.label : '';
+                texto.dataset.selecionado = texto.value;
+                fechar();
+            };
+            const filtrar = () => {
+                if (texto.value !== (texto.dataset.selecionado || '')) valor.value = '';
+                const termo = normalizar(texto.value);
+                let encontrados = 0;
+                opcoes.forEach((opcao) => {
+                    opcao.hidden = Boolean(termo && !normalizar(opcao.dataset.search).includes(termo));
+                    if (!opcao.hidden) encontrados += 1;
+                });
+                vazio.hidden = encontrados > 0;
+                indiceAtivo = -1;
+                abrir();
+            };
+
+            const inicialmenteSelecionada = opcoes.find((opcao) => opcao.dataset.id === valor.value && valor.value);
+            if (inicialmenteSelecionada) {
+                texto.value = inicialmenteSelecionada.dataset.label;
+                texto.dataset.selecionado = texto.value;
+            }
+            texto.addEventListener('focus', filtrar);
+            texto.addEventListener('input', filtrar);
+            texto.addEventListener('keydown', (evento) => {
+                if (evento.key === 'ArrowDown') { evento.preventDefault(); abrir(); destacar(indiceAtivo + 1); }
+                if (evento.key === 'ArrowUp') { evento.preventDefault(); abrir(); destacar(indiceAtivo - 1); }
+                if (evento.key === 'Enter' && indiceAtivo >= 0) { evento.preventDefault(); selecionar(visiveis()[indiceAtivo]); }
+                if (evento.key === 'Escape') fechar();
+            });
+            opcoes.forEach((opcao) => opcao.addEventListener('mousedown', (evento) => {
+                evento.preventDefault();
+                selecionar(opcao);
+            }));
+            busca.addEventListener('focusout', () => setTimeout(() => {
+                if (!busca.contains(document.activeElement)) fechar();
+            }, 100));
+        })();
+    </script>
 </body>
 </html>

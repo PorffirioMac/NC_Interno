@@ -5,7 +5,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import FileResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth import logout
+from django.contrib.auth import authenticate, logout
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -16,12 +17,16 @@ from django.urls import reverse
 from .forms import (
     ClienteForm, DespesaFinanceiraForm, ErroConhecidoForm,
     ProcedimentoInternoForm, ReleaseForm, RotinaForm, SolicitacaoReleaseForm,
+    SugestaoDesenvolvimentoForm,
 )
 from .models import (
-    AnexoErroConhecido, AnexoProcedimento, AnexoTicket, Cliente, ComentarioSolicitacao,
-    Comunicacao, ComunicacaoDestinatario, DespesaFinanceira, ErroConhecido,
+    AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
+    AnexoTicket, Cliente, ComentarioSolicitacao,
+    Comunicacao, ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira,
+    DespesaFinanceira, ErroConhecido,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
-    SolicitacaoRelease, Task, ChecklistItem, Comment, Notificacao,
+    SolicitacaoRelease, SugestaoDesenvolvimento, Task, ChecklistItem, Comment,
+    Notificacao, TarefaPessoal,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 
@@ -32,11 +37,28 @@ EXTENSOES_ANEXOS_PERMITIDAS = {
     '.txt', '.csv', '.zip', '.rar', '.7z',
 }
 TAMANHO_MAXIMO_ANEXO = 20 * 1024 * 1024
+USUARIO_AREA_GABRIEL = 'gabriel.porfirio'
+TEMPO_AREA_GABRIEL = 30 * 60
 
 
 def sair(request):
     logout(request)
     return redirect('login')
+
+
+def _pode_acessar_area_gabriel(usuario):
+    return (
+        usuario.is_authenticated
+        and usuario.username == USUARIO_AREA_GABRIEL
+        and (
+            usuario.is_superuser
+            or usuario.has_perm('app.acessar_area_gabriel')
+        )
+    )
+
+
+def _area_gabriel_desbloqueada(request):
+    return request.session.get('area_gabriel_ate', 0) > timezone.now().timestamp()
 
 
 def notificar_atribuicao(tarefa, destinatario, ator):
@@ -97,6 +119,20 @@ def marcar_todas_notificacoes_lidas(request):
 
 
 @login_required(login_url='/login/')
+@permission_required('app.acessar_financeiro', raise_exception=True)
+@require_POST
+def confirmar_despesa_popup(request, despesa_id):
+    despesa = get_object_or_404(DespesaFinanceira, id=despesa_id, ativa=True)
+    competencia = date.today().replace(day=1)
+    ConfirmacaoDespesaFinanceira.objects.get_or_create(
+        despesa=despesa,
+        usuario=request.user,
+        competencia=competencia,
+    )
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='/login/')
 def status_notificacoes(request):
     resumo_notificacoes = Notificacao.objects.filter(
         destinatario=request.user,
@@ -111,6 +147,10 @@ def status_notificacoes(request):
     ultima_despesa = 0
     if request.user.has_perm('app.acessar_financeiro'):
         hoje = date.today()
+        confirmadas = ConfirmacaoDespesaFinanceira.objects.filter(
+            usuario=request.user,
+            competencia=hoje.replace(day=1),
+        ).values_list('despesa_id', flat=True)
         ultimo_dia = monthrange(hoje.year, hoje.month)[1]
         filtro_dia = (
             {'dia_vencimento__gte': hoje.day}
@@ -120,10 +160,20 @@ def status_notificacoes(request):
         resumo_despesas = DespesaFinanceira.objects.filter(
             ativa=True,
             **filtro_dia,
-        ).aggregate(total=Count('id'), ultima=Max('id'))
+        ).exclude(id__in=confirmadas).aggregate(total=Count('id'), ultima=Max('id'))
         total_despesas = resumo_despesas['total']
         ultima_despesa = resumo_despesas['ultima'] or 0
     hoje = date.today()
+    tarefas_pessoais = []
+    if _pode_acessar_area_gabriel(request.user):
+        tarefas_pessoais = list(TarefaPessoal.objects.filter(
+            concluida=False,
+            data_conclusao__lte=hoje,
+        ))
+    marcador_pessoal = max(
+        (item.data_conclusao.toordinal() * 1_000_000 + item.id for item in tarefas_pessoais),
+        default=0,
+    )
     rotinas_pendentes = rotinas_pendentes_usuario(request.user, hoje)
     marcador_rotina = max(
         (
@@ -153,13 +203,15 @@ def status_notificacoes(request):
             + total_despesas
             + len(rotinas_pendentes)
             + resumo_plantao['total']
+            + len(tarefas_pessoais)
         ),
         'assinatura': (
             f"{resumo_notificacoes['ultima'] or 0}:"
             f"{resumo_comunicacoes['ultima'] or 0}:"
             f"{ultima_despesa}:"
             f"{marcador_rotina}:"
-            f"{marcador_plantao}"
+            f"{marcador_plantao}:"
+            f"{marcador_pessoal}"
         ),
     })
     resposta['Cache-Control'] = 'no-store'
@@ -213,6 +265,10 @@ def caixa_entrada(request):
             comunicacao_id=mensagem_id,
             destinatario=request.user,
         )
+        if not entrega_aberta.lida:
+            entrega_aberta.lida = True
+            entrega_aberta.lida_em = timezone.now()
+            entrega_aberta.save(update_fields=['lida', 'lida_em'])
 
     return render(request, 'app/caixa_entrada.html', {
         'entregas': entregas,
@@ -421,6 +477,111 @@ def remover_anexo_erro_conhecido(request, anexo_id):
     anexo.delete()
     messages.success(request, f'Anexo “{nome}” removido com sucesso!')
     return redirect('detalhes_erro_conhecido', erro_id=erro_id)
+
+
+@login_required(login_url='/login/')
+def sugestoes_desenvolvimento(request):
+    busca = request.GET.get('busca', '').strip()
+    sugestoes = SugestaoDesenvolvimento.objects.select_related(
+        'cliente', 'criado_por',
+    ).annotate(total_anexos=Count('anexos'))
+    if busca:
+        sugestoes = sugestoes.filter(
+            Q(titulo__icontains=busca)
+            | Q(descricao__icontains=busca)
+            | Q(cliente__nome_fantasia__icontains=busca)
+        )
+    return render(request, 'app/sugestoes_desenvolvimento.html', {
+        'sugestoes': sugestoes,
+        'busca': busca,
+    })
+
+
+@login_required(login_url='/login/')
+def criar_sugestao_desenvolvimento(request):
+    form = SugestaoDesenvolvimentoForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        sugestao = form.save(commit=False)
+        sugestao.criado_por = request.user
+        sugestao.save()
+        messages.success(request, 'Sugestão de desenvolvimento cadastrada com sucesso!')
+        return redirect('detalhes_sugestao_desenvolvimento', sugestao_id=sugestao.id)
+    return render(request, 'app/form_sugestao_desenvolvimento.html', {
+        'form': form,
+        'titulo_pagina': 'Nova Sugestão de Desenvolvimento',
+        'texto_botao': 'Salvar Sugestão',
+    })
+
+
+@login_required(login_url='/login/')
+def editar_sugestao_desenvolvimento(request, sugestao_id):
+    sugestao = get_object_or_404(SugestaoDesenvolvimento, id=sugestao_id)
+    form = SugestaoDesenvolvimentoForm(request.POST or None, instance=sugestao)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Sugestão de desenvolvimento atualizada com sucesso!')
+        return redirect('detalhes_sugestao_desenvolvimento', sugestao_id=sugestao.id)
+    return render(request, 'app/form_sugestao_desenvolvimento.html', {
+        'form': form,
+        'titulo_pagina': 'Editar Sugestão de Desenvolvimento',
+        'texto_botao': 'Salvar Alterações',
+    })
+
+
+@login_required(login_url='/login/')
+def detalhes_sugestao_desenvolvimento(request, sugestao_id):
+    sugestao = get_object_or_404(
+        SugestaoDesenvolvimento.objects.select_related(
+            'cliente', 'criado_por',
+        ).prefetch_related('anexos'),
+        id=sugestao_id,
+    )
+    if request.method == 'POST' and 'enviar_anexo' in request.POST:
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            messages.error(request, 'Selecione um arquivo para anexar.')
+        elif arquivo.size > TAMANHO_MAXIMO_ANEXO:
+            messages.error(request, 'O arquivo deve ter no máximo 20 MB.')
+        elif Path(arquivo.name).suffix.lower() not in EXTENSOES_ANEXOS_PERMITIDAS:
+            messages.error(request, 'Este tipo de arquivo não é permitido.')
+        else:
+            AnexoSugestaoDesenvolvimento.objects.create(
+                sugestao=sugestao,
+                arquivo=arquivo,
+                nome_original=Path(arquivo.name).name[:255],
+                tamanho=arquivo.size,
+                enviado_por=request.user,
+            )
+            messages.success(request, 'Anexo enviado com sucesso!')
+        return redirect('detalhes_sugestao_desenvolvimento', sugestao_id=sugestao.id)
+    return render(request, 'app/detalhes_sugestao_desenvolvimento.html', {
+        'sugestao': sugestao,
+    })
+
+
+@login_required(login_url='/login/')
+def baixar_anexo_sugestao_desenvolvimento(request, anexo_id):
+    anexo = get_object_or_404(AnexoSugestaoDesenvolvimento, id=anexo_id)
+    return FileResponse(
+        anexo.arquivo.open('rb'),
+        as_attachment=True,
+        filename=anexo.nome_original,
+    )
+
+
+@require_POST
+@login_required(login_url='/login/')
+def remover_anexo_sugestao_desenvolvimento(request, anexo_id):
+    anexo = get_object_or_404(
+        AnexoSugestaoDesenvolvimento.objects.select_related('sugestao'),
+        id=anexo_id,
+    )
+    sugestao_id = anexo.sugestao_id
+    nome = anexo.nome_original
+    anexo.arquivo.delete(save=False)
+    anexo.delete()
+    messages.success(request, f'Anexo “{nome}” removido com sucesso!')
+    return redirect('detalhes_sugestao_desenvolvimento', sugestao_id=sugestao_id)
 
 
 @login_required(login_url='/login/')
@@ -728,6 +889,131 @@ def dashboard(request):
         })
 
 @login_required(login_url='/login/')
+def area_gabriel(request):
+    if not _pode_acessar_area_gabriel(request.user):
+        raise PermissionDenied
+
+    if not _area_gabriel_desbloqueada(request):
+        erro_senha = ''
+        if request.method == 'POST' and 'desbloquear_area' in request.POST:
+            usuario = authenticate(
+                request,
+                username=request.user.username,
+                password=request.POST.get('senha', ''),
+            )
+            if usuario is not None:
+                request.session['area_gabriel_ate'] = (
+                    timezone.now().timestamp() + TEMPO_AREA_GABRIEL
+                )
+                return redirect('area_gabriel')
+            erro_senha = 'Senha incorreta.'
+        return render(request, 'app/area_gabriel_senha.html', {
+            'erro_senha': erro_senha,
+        })
+
+    if request.method == 'POST' and 'criar_tarefa_pessoal' in request.POST:
+        titulo = request.POST.get('titulo', '').strip()
+        area = request.POST.get('area', '')
+        data_texto = request.POST.get('data_conclusao', '')
+        try:
+            data_conclusao = date.fromisoformat(data_texto)
+        except ValueError:
+            data_conclusao = None
+        if not titulo or area not in dict(TarefaPessoal.AREAS) or not data_conclusao:
+            messages.error(request, 'Informe a tarefa, a área e uma data válida.')
+        else:
+            TarefaPessoal.objects.create(
+                titulo=titulo,
+                area=area,
+                data_conclusao=data_conclusao,
+            )
+            messages.success(request, 'Lembrete criado com sucesso!')
+        return redirect('area_gabriel')
+
+    tickets_netcamp = Task.objects.filter(
+        responsavel=request.user,
+        area='tickets',
+        encerrada=False,
+    ).select_related('cliente').annotate(
+        ultima_atualizacao_comentario=Max('comentarios__criado_em'),
+    ).order_by('-atualizado_em')
+    return render(request, 'app/area_gabriel.html', {
+        'tickets_netcamp': tickets_netcamp,
+        'fases_netcamp': dict(Task.FASES_TICKETS),
+        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba'),
+        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel'),
+        'hoje': date.today(),
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def concluir_tarefa_pessoal(request, tarefa_id):
+    if not _pode_acessar_area_gabriel(request.user):
+        raise PermissionDenied
+    tarefa = get_object_or_404(TarefaPessoal, id=tarefa_id)
+    tarefa.concluida = True
+    tarefa.concluida_em = timezone.now()
+    tarefa.save(update_fields=['concluida', 'concluida_em'])
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True})
+    return redirect('area_gabriel')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def excluir_tarefa_pessoal(request, tarefa_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    get_object_or_404(TarefaPessoal, id=tarefa_id).delete()
+    messages.success(request, 'Lembrete excluído.')
+    return redirect('area_gabriel')
+
+
+@login_required(login_url='/login/')
+def busca_global(request):
+    termo = request.GET.get('q', '').strip()
+    resultados = {
+        'tickets': Task.objects.none(),
+        'clientes': Cliente.objects.none(),
+        'procedimentos': ProcedimentoInterno.objects.none(),
+        'erros': ErroConhecido.objects.none(),
+    }
+    if termo:
+        tickets_encontrados = Task.objects.filter(
+            Q(titulo__icontains=termo) | Q(descricao__icontains=termo)
+        )
+        if not request.user.is_superuser:
+            tickets_encontrados = tickets_encontrados.filter(
+                responsavel=request.user,
+            )
+        resultados = {
+            'tickets': tickets_encontrados.select_related(
+                'cliente', 'responsavel',
+            ).order_by('-atualizado_em')[:30],
+            'clientes': Cliente.objects.filter(
+                Q(nome_fantasia__icontains=termo)
+                | Q(razao_social__icontains=termo)
+                | Q(codigo__icontains=termo)
+            ).order_by('nome_fantasia')[:30],
+            'procedimentos': ProcedimentoInterno.objects.filter(
+                Q(titulo__icontains=termo) | Q(conteudo__icontains=termo)
+            ).order_by('titulo')[:30],
+            'erros': ErroConhecido.objects.filter(
+                Q(palavra_chave__icontains=termo)
+                | Q(descricao__icontains=termo)
+                | Q(medida_corretiva__icontains=termo)
+            ).order_by('-atualizado_em')[:30],
+        }
+    total = sum(len(lista) for lista in resultados.values())
+    return render(request, 'app/busca_global.html', {
+        'termo': termo,
+        'resultados': resultados,
+        'total_resultados': total,
+    })
+
+
+@login_required(login_url='/login/')
 def tarefas(request):
     filtro = request.GET.get('filtro', 'todas')
     cliente_filtro = request.GET.get('cliente', '').strip()
@@ -972,11 +1258,11 @@ def criar_tarefa(request):
     if area not in dict(Task.AREAS):
         area = 'tickets'
     fases_disponiveis = Task.FASES_COMERCIAL if area == 'comercial' else Task.FASES_TICKETS
+    users = User.objects.filter(is_active=True).order_by('username')
     if request.method == 'POST':
         status = request.POST.get('status')
         if status not in dict(Task.STATUS_CHOICES):
             messages.error(request, 'Selecione um status válido.')
-            users = User.objects.filter(is_active=True).order_by('username') if request.user.is_superuser else None
             return render(request, 'app/criar_tarefa.html', {
                 'users': users,
                 'status_choices': Task.STATUS_CHOICES,
@@ -989,7 +1275,6 @@ def criar_tarefa(request):
         modulo = request.POST.get('modulo', '')
         if modulo not in dict(Task.MODULOS):
             messages.error(request, 'Selecione um módulo válido.')
-            users = User.objects.filter(is_active=True).order_by('username') if request.user.is_superuser else None
             return render(request, 'app/criar_tarefa.html', {
                 'users': users,
                 'status_choices': Task.STATUS_CHOICES,
@@ -999,10 +1284,14 @@ def criar_tarefa(request):
                 'clientes': Cliente.objects.filter(ativo=True),
             })
 
-        responsavel = None
-        if request.user.is_superuser and request.POST.get('responsavel'):
-            responsavel = get_object_or_404(User, id=request.POST['responsavel'])
-        elif not request.user.is_superuser:
+        responsavel_id = request.POST.get('responsavel')
+        if responsavel_id:
+            responsavel = get_object_or_404(
+                User, id=responsavel_id, is_active=True,
+            )
+        elif request.user.is_superuser:
+            responsavel = None
+        else:
             responsavel = request.user
 
         prazo = request.POST.get('prazo')
@@ -1074,7 +1363,6 @@ def criar_tarefa(request):
 
         messages.success(request, 'Ticket criado com checklists automáticos!')
         return redirect('comercial' if area == 'comercial' else 'tarefas')
-    users = User.objects.filter(is_active=True).order_by('username') if request.user.is_superuser else None
     return render(request, 'app/criar_tarefa.html', {
         'users': users,
         'status_choices': Task.STATUS_CHOICES,
@@ -1214,7 +1502,7 @@ def detalhes_tarefa(request, tarefa_id):
             else:
                 messages.error(request, 'Selecione um status válido.')
         return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
-    users = User.objects.filter(is_active=True).order_by('username') if request.user.is_superuser else None
+    users = User.objects.filter(is_active=True).order_by('username')
     return render(request, 'app/detalhes_tarefa.html', {
         'tarefa': tarefa,
         'is_admin': request.user.is_superuser,
@@ -1229,6 +1517,44 @@ def detalhes_tarefa(request, tarefa_id):
             Q(ativo=True) | Q(id=tarefa.cliente_id)
         ).distinct(),
     })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def editar_comentario_ticket(request, tarefa_id, comentario_id):
+    comentario = get_object_or_404(
+        Comment.objects.select_related('autor'),
+        id=comentario_id,
+        task_id=tarefa_id,
+    )
+    if not (request.user.is_superuser or comentario.autor_id == request.user.id):
+        messages.error(request, 'Você não tem permissão para editar este comentário.')
+        return redirect(f"{reverse('detalhes_tarefa', args=[tarefa_id])}#comentarios")
+
+    texto = request.POST.get('texto', '').strip()
+    if not texto:
+        messages.error(request, 'O comentário não pode ficar vazio.')
+    else:
+        comentario.texto = texto
+        comentario.save(update_fields=['texto'])
+        messages.success(request, 'Comentário atualizado com sucesso!')
+    return redirect(f"{reverse('detalhes_tarefa', args=[tarefa_id])}#comentarios")
+
+
+@login_required(login_url='/login/')
+@require_POST
+def excluir_comentario_ticket(request, tarefa_id, comentario_id):
+    comentario = get_object_or_404(
+        Comment.objects.select_related('autor'),
+        id=comentario_id,
+        task_id=tarefa_id,
+    )
+    if not (request.user.is_superuser or comentario.autor_id == request.user.id):
+        messages.error(request, 'Você não tem permissão para excluir este comentário.')
+    else:
+        comentario.delete()
+        messages.success(request, 'Comentário excluído com sucesso!')
+    return redirect(f"{reverse('detalhes_tarefa', args=[tarefa_id])}#comentarios")
 
 
 @login_required(login_url='/login/')

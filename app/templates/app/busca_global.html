@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca Global - NC Interno</title>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
+    <script src="/static/app/theme.js?v=20260910-2"></script>
+</head>
+<body>
+    <header class="topo"><h2>🔎 Busca Global</h2></header>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="search-page">
+        <form class="search-hero" method="get">
+            <input type="search" name="q" value="{{ termo }}" placeholder="Busque tickets, clientes, procedimentos e erros conhecidos" autofocus required>
+            <button class="btn" type="submit">Buscar</button>
+        </form>
+
+        {% if termo %}
+        <p class="search-summary"><strong>{{ total_resultados }}</strong> resultado{{ total_resultados|pluralize }} para “{{ termo }}”</p>
+        <div class="search-groups">
+            <section class="search-group">
+                <h2>📋 Tickets <span>{{ resultados.tickets|length }}</span></h2>
+                {% for item in resultados.tickets %}
+                <a class="search-result" href="{% url 'detalhes_tarefa' item.id %}"><strong>{{ item.titulo }}</strong><small>{{ item.get_area_display }} · {{ item.cliente.nome_fantasia|default:'Sem cliente' }} · {{ item.get_status_display }}</small><p>{{ item.descricao|truncatewords:24 }}</p></a>
+                {% empty %}<p class="search-empty">Nenhum ticket encontrado.</p>{% endfor %}
+            </section>
+            <section class="search-group">
+                <h2>🏢 Clientes <span>{{ resultados.clientes|length }}</span></h2>
+                {% for item in resultados.clientes %}
+                <a class="search-result" href="{% url 'detalhes_cliente' item.id %}"><strong>{% if item.codigo %}{{ item.codigo }} · {% endif %}{{ item.nome_fantasia }}</strong><small>{{ item.razao_social }}</small></a>
+                {% empty %}<p class="search-empty">Nenhum cliente encontrado.</p>{% endfor %}
+            </section>
+            <section class="search-group">
+                <h2>📚 Procedimentos <span>{{ resultados.procedimentos|length }}</span></h2>
+                {% for item in resultados.procedimentos %}
+                <a class="search-result" href="{% url 'detalhes_procedimento' item.id %}"><strong>{{ item.titulo }}</strong><p>{{ item.conteudo|truncatewords:24 }}</p></a>
+                {% empty %}<p class="search-empty">Nenhum procedimento encontrado.</p>{% endfor %}
+            </section>
+            <section class="search-group">
+                <h2>⚠️ Erros Conhecidos <span>{{ resultados.erros|length }}</span></h2>
+                {% for item in resultados.erros %}
+                <a class="search-result" href="{% url 'detalhes_erro_conhecido' item.id %}"><strong>{{ item.palavra_chave }}</strong><small>{{ item.get_modulo_display }}{% if item.corrigido %} · Corrigido{% endif %}</small><p>{{ item.descricao|truncatewords:24 }}</p></a>
+                {% empty %}<p class="search-empty">Nenhum erro conhecido encontrado.</p>{% endfor %}
+            </section>
+        </div>
+        {% else %}
+        <div class="search-start">Digite uma palavra para pesquisar em todo o sistema.</div>
+        {% endif %}
+    </main>
+</body>
+</html>

@@ -55,6 +55,29 @@
             });
         }
 
+        document.querySelectorAll('.kanban-scroll-shell').forEach(function (shell) {
+            const area = shell.querySelector('.kanban-scroll-area');
+            const anterior = shell.querySelector('.kanban-scroll-button.prev');
+            const proxima = shell.querySelector('.kanban-scroll-button.next');
+            if (!area) return;
+            function atualizarRolagem() {
+                shell.classList.toggle('can-left', area.scrollLeft > 5);
+                shell.classList.toggle(
+                    'can-right',
+                    area.scrollLeft + area.clientWidth < area.scrollWidth - 5
+                );
+            }
+            if (anterior) anterior.addEventListener('click', function () {
+                area.scrollBy({ left: -Math.max(300, area.clientWidth * .75), behavior: 'smooth' });
+            });
+            if (proxima) proxima.addEventListener('click', function () {
+                area.scrollBy({ left: Math.max(300, area.clientWidth * .75), behavior: 'smooth' });
+            });
+            area.addEventListener('scroll', atualizarRolagem, { passive: true });
+            window.addEventListener('resize', atualizarRolagem);
+            atualizarRolagem();
+        });
+
         const painel = document.getElementById('notificationPanel');
         if (!painel) return;
 
@@ -90,8 +113,8 @@
                     }
                     function iniciar() {
                         const agora = contexto.currentTime + 0.03;
-                        criarNota(659.25, agora, 0.22, 0.58);
-                        criarNota(783.99, agora + 0.15, 0.30, 0.50);
+                        criarNota(659.25, agora, 0.22, 0.68);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.60);
                         window.setTimeout(function () {
                             contexto.close().finally(resolve);
                         }, 650);
@@ -407,7 +430,14 @@
                 postar(botao.dataset.dismissUrl).then(function (response) {
                     if (!response.ok) throw new Error('Não foi possível confirmar a atualização.');
                     const linha = botao.closest('.notification-update-row');
+                    const secaoDescartavel = linha && linha.closest('[data-dismissible-section]');
                     if (linha) linha.remove();
+                    if (
+                        secaoDescartavel
+                        && !secaoDescartavel.querySelector('.notification-update-row')
+                    ) {
+                        secaoDescartavel.remove();
+                    }
                     reduzirBadge(1);
                     mostrarAtualizacoesVazias();
                 }).catch(function () {

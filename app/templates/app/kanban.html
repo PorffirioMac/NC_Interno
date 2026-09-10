@@ -24,7 +24,7 @@
         .btn-outline.active { background: #1a73e8; color: white; }
         .filtros { display: flex; gap: 8px; align-items: center; }
         .filtros span { font-size: 13px; color: #888; }
-        .kanban-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+        .kanban-board { display: flex; gap: 16px; overflow-x: scroll; }
         .coluna { background: #e8ecf1; border-radius: 12px; padding: 16px; min-height: 400px; }
         .coluna.drag-over { outline: 3px dashed #1a73e8; outline-offset: -5px; background: #dce9fa; }
         .coluna h3 { font-size: 14px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #ccc; }
@@ -58,8 +58,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; }
         .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
-    <script src="/static/app/theme.js?v=20260805-1"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
+    <script src="/static/app/theme.js?v=20260910-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -73,6 +73,7 @@
     {% include 'app/base_nav_snippet.html' %}
 
     <div class="container">
+        <div class="workspace-marker technical">🛠 Ambiente Técnico</div>
         {% if messages %}
         <ul class="mensagens">
             {% for msg in messages %}
@@ -135,7 +136,9 @@
 
         {% if view_mode == 'kanban' %}
         <form id="csrf-form" style="display:none;">{% csrf_token %}</form>
-        <div class="kanban-board">
+        <div class="kanban-scroll-shell">
+        <button type="button" class="kanban-scroll-button prev" aria-label="Ver colunas anteriores">‹</button>
+        <div class="kanban-board kanban-scroll-area">
             {% for fase_key, fase_nome in fases.items %}
             <div class="coluna" data-fase="{{ fase_key }}">
                 <h3>{{ fase_nome }}</h3>
@@ -146,6 +149,7 @@
                          data-detalhes-url="{% url 'detalhes_tarefa' tarefa.id %}"
                          role="link" tabindex="0" aria-label="Abrir ticket {{ tarefa.titulo }}">
                         <h4>{{ tarefa.titulo }}</h4>
+                        <span class="priority-badge prioridade-{{ tarefa.prioridade }}">{{ tarefa.get_prioridade_display }}</span>
                         <p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</p>
                         <p>{{ tarefa.descricao|truncatewords:15 }}</p>
                         <div class="meta">
@@ -168,6 +172,8 @@
                 {% endfor %}
             </div>
             {% endfor %}
+        </div>
+        <button type="button" class="kanban-scroll-button next" aria-label="Ver próximas colunas">›</button>
         </div>
         {% else %}
         <div class="lista-view">
@@ -194,7 +200,7 @@
                             <td>{{ tarefa.get_fase_display }}</td>
                             <td>{{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</td>
                             <td>{{ tarefa.get_status_display }}</td>
-                            <td>{{ tarefa.get_prioridade_display }}</td>
+                            <td><span class="priority-badge prioridade-{{ tarefa.prioridade }}">{{ tarefa.get_prioridade_display }}</span></td>
                             <td>{{ tarefa.responsavel.username|default:"—" }}</td>
                             <td>{{ tarefa.prazo|date:"d/m/Y"|default:'—' }}</td>
                             <td>{{ tarefa.atualizado_em|date:"d/m/Y H:i" }}</td>

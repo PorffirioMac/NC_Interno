@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Área Gabriel - NC Interno</title>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-3">
+    <script src="/static/app/theme.js?v=20260910-3"></script>
+    <style>
+        .private-lock { width: min(430px, calc(100% - 32px)); margin: 70px auto; padding: 32px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-strong); box-shadow: var(--shadow); }
+        .private-lock-icon { font-size: 42px; }
+        .private-lock h1 { margin: 12px 0 8px; }
+        .private-lock p { color: var(--text-muted) !important; line-height: 1.5; }
+        .private-lock form { margin-top: 22px; }
+        .private-lock label { display: block; margin-bottom: 7px; font-weight: 700; }
+        .private-lock input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 9px; }
+        .private-lock .btn { width: 100%; padding: 12px; }
+        .private-error { margin-top: 12px; color: #e03131 !important; }
+    </style>
+</head>
+<body>
+    <header class="topo"><h2>🔒 Área Gabriel</h2></header>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="private-lock">
+        <div class="private-lock-icon">🔐</div>
+        <h1>Confirmar acesso</h1>
+        <p>Digite novamente sua senha para acessar sua área privada. O acesso ficará liberado por 30 minutos.</p>
+        {% if erro_senha %}<p class="private-error">{{ erro_senha }}</p>{% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="desbloquear_area" value="1">
+            <label for="senha-area">Senha</label>
+            <input id="senha-area" type="password" name="senha" autocomplete="current-password" required autofocus>
+            <button class="btn" type="submit">Desbloquear área</button>
+        </form>
+    </main>
+</body>
+</html>

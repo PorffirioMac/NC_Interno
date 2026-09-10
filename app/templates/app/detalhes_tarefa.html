@@ -25,6 +25,15 @@
         .comentario .autor { font-weight: bold; color: #333; font-size: 13px; }
         .comentario .data { color: #999; font-size: 12px; }
         .comentario .texto { margin-top: 4px; color: #555; }
+        .comentario-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .comentario-acoes { display: flex; align-items: center; gap: 8px; }
+        .comentario-acoes details { position: relative; }
+        .comentario-acoes summary { color: var(--primary, #1a73e8); font-size: 12px; cursor: pointer; list-style: none; }
+        .comentario-acoes summary::-webkit-details-marker { display: none; }
+        .comentario-edicao { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border, #ddd); }
+        .comentario-edicao textarea { min-height: 110px; }
+        .btn-link-perigo { padding: 0; border: 0; background: none; color: #c62828; font-size: 12px; cursor: pointer; }
+        .comentario-acoes form { margin: 0; }
         form { margin-top: 16px; }
         input, textarea, select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
         textarea { min-height: 80px; resize: vertical; }
@@ -38,8 +47,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
-    <script src="/static/app/theme.js?v=20260805-1"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
+    <script src="/static/app/theme.js?v=20260910-2"></script>
 </head>
 <body>
     <div class="topo">
@@ -135,7 +144,7 @@
             </div>
         </div>
 
-        <div class="card-detalhe">
+        <div class="card-detalhe" id="comentarios">
             <h3>💬 Comentários</h3>
             <form method="post">
                 {% csrf_token %}
@@ -146,9 +155,27 @@
             <div style="margin-top: 16px;">
                 {% for comentario in tarefa.comentarios.all reversed %}
                 <div class="comentario">
-                    <div>
-                        <span class="autor">{{ comentario.autor.username }}</span>
-                        <span class="data">{{ comentario.criado_em|date:"d/m/Y H:i" }}</span>
+                    <div class="comentario-cabecalho">
+                        <div>
+                            <span class="autor">{{ comentario.autor.username|default:'Usuário removido' }}</span>
+                            <span class="data">{{ comentario.criado_em|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        {% if user.is_superuser or comentario.autor_id == user.id %}
+                        <div class="comentario-acoes">
+                            <details>
+                                <summary>Editar</summary>
+                                <form method="post" action="{% url 'editar_comentario_ticket' tarefa.id comentario.id %}" class="comentario-edicao">
+                                    {% csrf_token %}
+                                    <textarea name="texto" required>{{ comentario.texto }}</textarea>
+                                    <button type="submit" class="btn btn-small">Salvar alteração</button>
+                                </form>
+                            </details>
+                            <form method="post" action="{% url 'excluir_comentario_ticket' tarefa.id comentario.id %}" onsubmit="return confirm('Tem certeza que deseja excluir este comentário?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-link-perigo">Excluir</button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="texto">{{ comentario.texto|linebreaks }}</div>
                 </div>

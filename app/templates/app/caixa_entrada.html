@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caixa de Entrada - NC_Interno</title>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260804-1">
-    <script src="/static/app/theme.js?v=20260805-1"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
+    <script src="/static/app/theme.js?v=20260910-2"></script>
 </head>
 <body>
     <div class="topo">
         <h2>📥 Caixa de Entrada</h2>
-        <a href="{% url 'logout' %}">Sair</a>
+        <a href="{% url 'logout' %}" class="header-logout"><span aria-hidden="true">↪</span> Sair</a>
     </div>
     {% include 'app/base_nav_snippet.html' %}
 
@@ -77,8 +77,8 @@
                 <div class="inbox-body">{{ entrega_aberta.comunicacao.conteudo|linebreaks }}</div>
                 <form method="post" action="{% url 'alterar_leitura_comunicacao' entrega_aberta.comunicacao_id %}">
                     {% csrf_token %}
-                    <input type="hidden" name="lida" value="{% if entrega_aberta.lida %}0{% else %}1{% endif %}">
-                    <button class="btn btn-small" type="submit">{% if entrega_aberta.lida %}Marcar como não lida{% else %}✓ Marcar como lida{% endif %}</button>
+                    <input type="hidden" name="lida" value="0">
+                    <button class="btn btn-small" type="submit">Marcar como não lida</button>
                 </form>
                 {% else %}
                 <div class="inbox-placeholder"><span>📨</span><p>Selecione uma mensagem para ler.</p></div>

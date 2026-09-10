@@ -9,11 +9,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import (
-    AnexoErroConhecido, AnexoProcedimento, AnexoTicket, Cliente, Comment, Comunicacao,
-    ComunicacaoDestinatario, DespesaFinanceira, ErroConhecido, Notificacao,
-    ProcedimentoInterno, Release, Rotina, RotinaConclusao, Task,
+    AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
+    AnexoTicket, Cliente, Comment, Comunicacao,
+    ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira, DespesaFinanceira,
+    ErroConhecido, Notificacao,
+    ProcedimentoInterno, Release, Rotina, RotinaConclusao,
+    SugestaoDesenvolvimento, Task, TarefaPessoal,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 from .views import _data_vencimento_mensal
@@ -37,6 +41,49 @@ class PainelNotificacoesTests(TestCase):
         self.assertContains(resposta, 'Central de avisos')
         self.assertContains(resposta, 'Ticket de teste')
         self.assertContains(resposta, 'Vence hoje')
+
+    def test_secoes_do_popup_respeitam_ordem_de_prioridade(self):
+        self.operador.user_permissions.add(
+            Permission.objects.get(codename='acessar_financeiro')
+        )
+        Task.objects.create(
+            titulo='Ticket do plantão',
+            responsavel=self.operador,
+            area='tickets',
+            fase='pendencias_plantao',
+        )
+        DespesaFinanceira.objects.create(
+            titulo='Despesa de hoje',
+            valor=Decimal('10.00'),
+            dia_vencimento=date.today().day,
+            criado_por=self.admin,
+        )
+        comunicado = Comunicacao.objects.create(
+            categoria='aviso',
+            titulo='Comunicado para ordenar',
+            conteudo='Conteúdo.',
+            autor=self.admin,
+        )
+        ComunicacaoDestinatario.objects.create(
+            comunicacao=comunicado,
+            destinatario=self.operador,
+        )
+        Notificacao.objects.create(
+            destinatario=self.operador,
+            ator=self.admin,
+            tarefa=self.tarefa,
+            tipo='atribuicao',
+            mensagem='Atualização para ordenar.',
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(reverse('dashboard'))
+        conteudo = resposta.content.decode()
+
+        self.assertLess(conteudo.index('⏰ Prazos'), conteudo.index('🛟 Plantão'))
+        self.assertLess(conteudo.index('🛟 Plantão'), conteudo.index('💰 Financeiro hoje'))
+        self.assertLess(conteudo.index('💰 Financeiro hoje'), conteudo.index('📥 Comunicados'))
+        self.assertLess(conteudo.index('📥 Comunicados'), conteudo.index('💬 Atualizações'))
 
     def test_comentario_notifica_responsavel(self):
         self.client.force_login(self.outro)
@@ -72,6 +119,57 @@ class PainelNotificacoesTests(TestCase):
             conteudo.index('Comentário mais recente'),
             conteudo.index('Comentário mais antigo'),
         )
+
+    def test_autor_pode_editar_proprio_comentario(self):
+        comentario = Comment.objects.create(
+            task=self.tarefa,
+            autor=self.operador,
+            texto='Texto original',
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('editar_comentario_ticket', args=[self.tarefa.id, comentario.id]),
+            {'texto': 'Texto corrigido'},
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        comentario.refresh_from_db()
+        self.assertEqual(comentario.texto, 'Texto corrigido')
+
+    def test_usuario_nao_pode_alterar_comentario_de_outro(self):
+        comentario = Comment.objects.create(
+            task=self.tarefa,
+            autor=self.operador,
+            texto='Comentário protegido',
+        )
+        self.client.force_login(self.outro)
+
+        self.client.post(
+            reverse('editar_comentario_ticket', args=[self.tarefa.id, comentario.id]),
+            {'texto': 'Tentativa de alteração'},
+        )
+        self.client.post(
+            reverse('excluir_comentario_ticket', args=[self.tarefa.id, comentario.id]),
+        )
+
+        comentario.refresh_from_db()
+        self.assertEqual(comentario.texto, 'Comentário protegido')
+
+    def test_admin_pode_excluir_comentario(self):
+        comentario = Comment.objects.create(
+            task=self.tarefa,
+            autor=self.operador,
+            texto='Comentário a remover',
+        )
+        self.client.force_login(self.admin)
+
+        resposta = self.client.post(
+            reverse('excluir_comentario_ticket', args=[self.tarefa.id, comentario.id]),
+        )
+
+        self.assertEqual(resposta.status_code, 302)
+        self.assertFalse(Comment.objects.filter(id=comentario.id).exists())
 
     def test_nova_atribuicao_notifica_operador(self):
         self.tarefa.responsavel = None
@@ -128,7 +226,7 @@ class PainelNotificacoesTests(TestCase):
         self.assertEqual(resposta.json()['total'], 2)
         self.assertEqual(
             resposta.json()['assinatura'],
-            f'{notificacao.id}:{entrega.id}:0:0:0',
+            f'{notificacao.id}:{entrega.id}:0:0:0:0',
         )
         self.assertEqual(resposta['Cache-Control'], 'no-store')
 
@@ -401,6 +499,75 @@ class FinanceiroTests(TestCase):
         self.assertNotContains(resposta, 'Financeiro hoje')
         self.assertNotContains(resposta, despesa.titulo)
 
+    def test_usuario_confirma_pagamento_e_item_some_do_popup(self):
+        despesa = DespesaFinanceira.objects.create(
+            titulo='Pagamento confirmado',
+            valor=Decimal('250.00'),
+            dia_vencimento=date.today().day,
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+        painel = self.client.get(reverse('dashboard'))
+        self.assertContains(painel, despesa.titulo)
+        self.assertContains(
+            painel,
+            reverse('confirmar_despesa_popup', args=[despesa.id]),
+        )
+
+        resposta = self.client.post(
+            reverse('confirmar_despesa_popup', args=[despesa.id]),
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        confirmacao = ConfirmacaoDespesaFinanceira.objects.get()
+        self.assertEqual(confirmacao.usuario, self.usuario)
+        self.assertEqual(confirmacao.competencia, date.today().replace(day=1))
+        painel = self.client.get(reverse('dashboard'))
+        self.assertNotContains(painel, despesa.titulo)
+        self.assertEqual(
+            self.client.get(reverse('status_notificacoes')).json()['total'],
+            0,
+        )
+
+    def test_confirmacao_e_individual_por_usuario(self):
+        outro_autorizado = User.objects.create_user(
+            'financeiro_outro',
+            password='senha',
+        )
+        outro_autorizado.user_permissions.add(self.permissao)
+        despesa = DespesaFinanceira.objects.create(
+            titulo='Despesa compartilhada',
+            valor=Decimal('90.00'),
+            dia_vencimento=date.today().day,
+            criado_por=self.usuario,
+        )
+        ConfirmacaoDespesaFinanceira.objects.create(
+            despesa=despesa,
+            usuario=self.usuario,
+            competencia=date.today().replace(day=1),
+        )
+
+        self.client.force_login(outro_autorizado)
+        painel = self.client.get(reverse('dashboard'))
+
+        self.assertContains(painel, despesa.titulo)
+
+    def test_usuario_sem_permissao_nao_confirma_pagamento(self):
+        despesa = DespesaFinanceira.objects.create(
+            titulo='Despesa protegida',
+            valor=Decimal('50.00'),
+            dia_vencimento=date.today().day,
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.sem_permissao)
+
+        resposta = self.client.post(
+            reverse('confirmar_despesa_popup', args=[despesa.id]),
+        )
+
+        self.assertEqual(resposta.status_code, 403)
+        self.assertFalse(ConfirmacaoDespesaFinanceira.objects.exists())
+
     def test_vencimento_dia_31_ajusta_para_fim_de_mes_curto(self):
         despesa = DespesaFinanceira(
             titulo='Fechamento',
@@ -477,6 +644,94 @@ class PendenciasPlantaoTests(TestCase):
         dashboard = self.client.get(reverse('dashboard'))
 
         self.assertNotContains(dashboard, 'Pendência de outro funcionário')
+
+    def test_encerrar_ticket_tecnico_remove_de_todas_as_secoes_do_popup(self):
+        self.tarefa.fase = 'pendencias_plantao'
+        self.tarefa.prazo = date.today()
+        self.tarefa.save()
+        notificacao = Notificacao.objects.create(
+            destinatario=self.usuario,
+            ator=self.usuario,
+            tarefa=self.tarefa,
+            tipo='comentario',
+            mensagem='Atualização do ticket técnico a encerrar.',
+        )
+
+        antes = self.client.get(reverse('dashboard'))
+        self.assertContains(antes, self.tarefa.titulo)
+        self.assertContains(antes, notificacao.mensagem)
+
+        self.client.get(reverse('encerrar_tarefa', args=[self.tarefa.id]))
+        depois = self.client.get(reverse('dashboard'))
+
+        self.assertNotContains(depois, self.tarefa.titulo)
+        self.assertNotContains(depois, notificacao.mensagem)
+        notificacao.refresh_from_db()
+        self.assertTrue(notificacao.lida)
+
+
+class AtribuicaoNaCriacaoTests(TestCase):
+    def setUp(self):
+        self.criadora = User.objects.create_user('gabriela', password='senha')
+        self.destinatario = User.objects.create_user('gabriel', password='senha')
+        self.client.force_login(self.criadora)
+
+    def dados_ticket(self, **extras):
+        dados = {
+            'area': 'tickets',
+            'titulo': 'Tarefa criada por operadora',
+            'descricao': '',
+            'modulo': '',
+            'fase': 'diversos',
+            'status': 'pendente_netcamp',
+            'prioridade': 'media',
+            'prazo': '',
+            'cliente': '',
+        }
+        dados.update(extras)
+        return dados
+
+    def test_operadora_pode_atribuir_novo_ticket_a_outro_usuario(self):
+        formulario = self.client.get(reverse('criar_tarefa'))
+        self.assertContains(formulario, 'gabriel')
+
+        resposta = self.client.post(
+            reverse('criar_tarefa'),
+            self.dados_ticket(responsavel=self.destinatario.id),
+        )
+
+        self.assertRedirects(resposta, reverse('tarefas'))
+        tarefa = Task.objects.get(titulo='Tarefa criada por operadora')
+        self.assertEqual(tarefa.responsavel, self.destinatario)
+        self.assertTrue(
+            Notificacao.objects.filter(
+                tarefa=tarefa,
+                destinatario=self.destinatario,
+                tipo='atribuicao',
+            ).exists()
+        )
+
+    def test_operadora_sem_selecao_recebe_o_proprio_ticket(self):
+        self.client.post(
+            reverse('criar_tarefa'),
+            self.dados_ticket(responsavel=''),
+        )
+
+        tarefa = Task.objects.get(titulo='Tarefa criada por operadora')
+        self.assertEqual(tarefa.responsavel, self.criadora)
+
+    def test_conta_inativa_nao_pode_ser_atribuida(self):
+        inativo = User.objects.create_user(
+            'usuario_inativo', password='senha', is_active=False,
+        )
+
+        resposta = self.client.post(
+            reverse('criar_tarefa'),
+            self.dados_ticket(responsavel=inativo.id),
+        )
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(Task.objects.filter(titulo='Tarefa criada por operadora').exists())
 
 
 class ModuloTicketTests(TestCase):
@@ -671,6 +926,118 @@ class RotinaTests(TestCase):
         pendentes = rotinas_pendentes_usuario(self.funcionario)
 
         self.assertEqual(pendentes, [item])
+
+
+class SugestoesDesenvolvimentoTests(TestCase):
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.usuario = User.objects.create_user(
+            'usuario_sugestao',
+            password='senha',
+        )
+        self.cliente_cadastrado = Cliente.objects.create(
+            codigo='90001',
+            nome_fantasia='Cliente da Sugestão',
+            razao_social='Cliente da Sugestão Ltda.',
+            cnpj='90.001.000/0001-00',
+            proprietario='Responsável',
+            telefone='(11) 99999-9999',
+        )
+        self.sugestao = SugestaoDesenvolvimento.objects.create(
+            titulo='Novo relatório gerencial',
+            modulo='portal',
+            cliente=self.cliente_cadastrado,
+            descricao='Criar visão consolidada para os gestores.',
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media_root, ignore_errors=True)
+
+    def test_lista_pesquisa_e_abre_sugestao(self):
+        lista = self.client.get(
+            reverse('sugestoes_desenvolvimento'),
+            {'busca': 'Cliente da Sugestão'},
+        )
+        detalhes = self.client.get(
+            reverse('detalhes_sugestao_desenvolvimento', args=[self.sugestao.id]),
+        )
+
+        self.assertContains(lista, 'Novo relatório gerencial')
+        self.assertContains(detalhes, 'Criar visão consolidada')
+        self.assertContains(detalhes, 'Portal')
+
+    def test_cria_e_edita_sugestao(self):
+        resposta = self.client.post(
+            reverse('criar_sugestao_desenvolvimento'),
+            {
+                'titulo': 'Melhoria no PDV',
+                'modulo': 'pdv',
+                'cliente': self.cliente_cadastrado.id,
+                'descricao': 'Adicionar um novo atalho operacional.',
+            },
+        )
+        criada = SugestaoDesenvolvimento.objects.get(titulo='Melhoria no PDV')
+        self.assertRedirects(
+            resposta,
+            reverse('detalhes_sugestao_desenvolvimento', args=[criada.id]),
+        )
+        self.assertEqual(criada.criado_por, self.usuario)
+
+        self.client.post(
+            reverse('editar_sugestao_desenvolvimento', args=[criada.id]),
+            {
+                'titulo': 'Melhoria atualizada no PDV',
+                'modulo': 'pdv_pos',
+                'cliente': '',
+                'descricao': 'Descrição atualizada.',
+            },
+        )
+        criada.refresh_from_db()
+        self.assertEqual(criada.modulo, 'pdv_pos')
+        self.assertIsNone(criada.cliente)
+
+    def test_envia_baixa_e_remove_anexo(self):
+        self.client.post(
+            reverse('detalhes_sugestao_desenvolvimento', args=[self.sugestao.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile('referencia.pdf', b'%PDF referencia'),
+            },
+        )
+        anexo = AnexoSugestaoDesenvolvimento.objects.get(sugestao=self.sugestao)
+        storage = anexo.arquivo.storage
+        nome_arquivo = anexo.arquivo.name
+
+        download = self.client.get(
+            reverse('baixar_anexo_sugestao_desenvolvimento', args=[anexo.id]),
+        )
+        self.assertEqual(download.status_code, 200)
+        b''.join(download.streaming_content)
+        download.close()
+
+        self.client.post(
+            reverse('remover_anexo_sugestao_desenvolvimento', args=[anexo.id]),
+        )
+        self.assertFalse(
+            AnexoSugestaoDesenvolvimento.objects.filter(id=anexo.id).exists()
+        )
+        self.assertFalse(storage.exists(nome_arquivo))
+
+    def test_bloqueia_anexo_executavel(self):
+        self.client.post(
+            reverse('detalhes_sugestao_desenvolvimento', args=[self.sugestao.id]),
+            {
+                'enviar_anexo': '1',
+                'arquivo': SimpleUploadedFile('programa.exe', b'MZ'),
+            },
+        )
+
+        self.assertFalse(AnexoSugestaoDesenvolvimento.objects.exists())
 
 
 class ProcedimentosInternosTests(TestCase):
@@ -1081,6 +1448,142 @@ class GerarTicketImplantacaoTests(TestCase):
             self.assertEqual(arquivo.read(), b'conteudo do contrato')
 
 
+class AreaGabrielTests(TestCase):
+    def setUp(self):
+        self.gabriel = User.objects.create_superuser(
+            'gabriel.porfirio',
+            password='senha-segura',
+        )
+        self.outro = User.objects.create_superuser('outro.admin', password='senha')
+
+    def test_somente_usuario_gabriel_porfirio_pode_acessar(self):
+        self.client.force_login(self.outro)
+        resposta = self.client.get(reverse('area_gabriel'))
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_area_exige_senha_e_desbloqueia_por_sessao(self):
+        self.client.force_login(self.gabriel)
+        bloqueada = self.client.get(reverse('area_gabriel'))
+        self.assertContains(bloqueada, 'Confirmar acesso')
+
+        resposta = self.client.post(reverse('area_gabriel'), {
+            'desbloquear_area': '1',
+            'senha': 'senha-segura',
+        })
+        self.assertRedirects(resposta, reverse('area_gabriel'))
+        liberada = self.client.get(reverse('area_gabriel'))
+        self.assertContains(liberada, 'Minha organização')
+
+    def test_kanban_exibe_somente_ticket_tecnico_atribuido_ao_gabriel(self):
+        ticket_gabriel = Task.objects.create(
+            titulo='Ticket técnico do Gabriel',
+            area='tickets',
+            responsavel=self.gabriel,
+        )
+        Task.objects.create(
+            titulo='Ticket técnico de outro usuário',
+            area='tickets',
+            responsavel=self.outro,
+        )
+        Task.objects.create(
+            titulo='Tarefa comercial do Gabriel',
+            area='comercial',
+            responsavel=self.gabriel,
+        )
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_ate'] = timezone.now().timestamp() + 1800
+        sessao.save()
+
+        resposta = self.client.get(reverse('area_gabriel'))
+
+        self.assertContains(resposta, ticket_gabriel.titulo)
+        self.assertNotContains(resposta, 'Ticket técnico de outro usuário')
+        self.assertNotContains(resposta, 'Tarefa comercial do Gabriel')
+
+    def test_lembrete_vencido_aparece_no_popup_e_pode_ser_concluido(self):
+        lembrete = TarefaPessoal.objects.create(
+            titulo='Comprar insumos do restaurante',
+            area='casa_yakisoba',
+            data_conclusao=date.today(),
+        )
+        futuro = TarefaPessoal.objects.create(
+            titulo='Lembrete pessoal futuro',
+            area='gabriel',
+            data_conclusao=date.today() + timedelta(days=2),
+        )
+        self.client.force_login(self.gabriel)
+
+        painel = self.client.get(reverse('dashboard'))
+        self.assertContains(painel, lembrete.titulo)
+        self.assertNotContains(painel, futuro.titulo)
+
+        resposta = self.client.post(
+            reverse('concluir_tarefa_pessoal', args=[lembrete.id]),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resposta.status_code, 200)
+        lembrete.refresh_from_db()
+        self.assertTrue(lembrete.concluida)
+
+
+class BuscaGlobalTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin_busca', password='senha')
+        self.operador = User.objects.create_user('operador_busca', password='senha')
+        self.outro = User.objects.create_user('outro_busca', password='senha')
+        self.cliente = Cliente.objects.create(
+            codigo='54321',
+            nome_fantasia='Restaurante Horizonte',
+            razao_social='Horizonte Alimentação Ltda.',
+            cnpj='00.000.000/0001-00',
+            proprietario='Proprietário',
+            telefone='11999999999',
+        )
+        self.ticket = Task.objects.create(
+            titulo='Configurar impressora cozinha',
+            descricao='Configuração no terminal principal.',
+            responsavel=self.operador,
+            cliente=self.cliente,
+        )
+        self.procedimento = ProcedimentoInterno.objects.create(
+            titulo='Instalação do terminal',
+            conteudo='Configure a impressora da cozinha.',
+            criado_por=self.admin,
+        )
+        self.erro = ErroConhecido.objects.create(
+            palavra_chave='Impressora desconectada',
+            modulo='pdv',
+            descricao='Falha de comunicação com a impressora.',
+            versao_observada='1.0',
+            ticket_netcontroll='',
+        )
+
+    def test_busca_agrupa_e_exibe_todos_os_tipos(self):
+        self.client.force_login(self.admin)
+        resposta = self.client.get(reverse('busca_global'), {'q': 'impressora'})
+
+        self.assertContains(resposta, self.ticket.titulo)
+        self.assertContains(resposta, self.procedimento.titulo)
+        self.assertContains(resposta, self.erro.palavra_chave)
+        resposta_cliente = self.client.get(reverse('busca_global'), {'q': 'Horizonte'})
+        self.assertContains(resposta_cliente, self.cliente.nome_fantasia)
+
+    def test_operador_nao_encontra_ticket_atribuido_a_outro_usuario(self):
+        ticket_alheio = Task.objects.create(
+            titulo='Ticket confidencial alheio',
+            responsavel=self.outro,
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(
+            reverse('busca_global'),
+            {'q': 'confidencial alheio'},
+        )
+
+        self.assertNotContains(resposta, ticket_alheio.titulo)
+
+
 class CaixaEntradaTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser('admin', 'admin@example.com', 'senha')
@@ -1136,6 +1639,35 @@ class CaixaEntradaTests(TestCase):
         entrega.refresh_from_db()
         self.assertTrue(entrega.lida)
         self.assertIsNotNone(entrega.lida_em)
+
+    def test_abrir_comunicacao_marca_automaticamente_como_lida(self):
+        comunicacao = Comunicacao.objects.create(
+            categoria='aviso',
+            titulo='Leitura automática',
+            conteudo='Mensagem aberta pelo destinatário.',
+            autor=self.admin,
+        )
+        entrega = ComunicacaoDestinatario.objects.create(
+            comunicacao=comunicacao,
+            destinatario=self.operador,
+        )
+        entrega_outro = ComunicacaoDestinatario.objects.create(
+            comunicacao=comunicacao,
+            destinatario=self.outro,
+        )
+        self.client.force_login(self.operador)
+
+        resposta = self.client.get(
+            f"{reverse('caixa_entrada')}?mensagem={comunicacao.id}",
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        entrega.refresh_from_db()
+        entrega_outro.refresh_from_db()
+        self.assertTrue(entrega.lida)
+        self.assertIsNotNone(entrega.lida_em)
+        self.assertFalse(entrega_outro.lida)
+        self.assertIsNone(entrega_outro.lida_em)
 
     def test_publicar_release_gera_comunicacao(self):
         self.client.force_login(self.admin)

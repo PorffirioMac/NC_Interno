@@ -1,0 +1,7 @@
+<div class="simple-task {% if item.concluida %}done{% elif item.data_conclusao < hoje %}overdue{% endif %}">
+    {% if not item.concluida %}
+    <form method="post" action="{% url 'concluir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="check-button" type="submit" title="Concluir">☐</button></form>
+    {% else %}<span aria-label="Concluída">☑</span>{% endif %}
+    <div><strong>{{ item.titulo }}</strong><small>{% if item.concluida %}Concluída{% else %}Conclusão: {{ item.data_conclusao|date:'d/m/Y' }}{% endif %}</small></div>
+    <form method="post" action="{% url 'excluir_tarefa_pessoal' item.id %}" onsubmit="return confirm('Excluir esta tarefa?')">{% csrf_token %}<button class="delete-button" type="submit" title="Excluir">Excluir</button></form>
+</div>

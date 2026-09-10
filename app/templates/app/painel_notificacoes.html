@@ -19,6 +19,43 @@
             <button type="button" class="notification-close" id="notificationClose"
                     title="Minimizar" aria-label="Minimizar central">×</button>
         </div>
+        <section class="notification-section">
+            <h3>⏰ Prazos</h3>
+            {% for tarefa_item in painel_prazos %}
+            <a class="notification-item deadline {% if tarefa_item.prazo < painel_hoje %}overdue{% else %}today{% endif %}"
+               href="{% url 'detalhes_tarefa' tarefa_item.id %}">
+                <span class="notification-dot"></span>
+                <span>
+                    <strong>{{ tarefa_item.titulo }}</strong>
+                    <small>{% if tarefa_item.prazo < painel_hoje %}Venceu em {{ tarefa_item.prazo|date:'d/m/Y' }}{% else %}Vence hoje{% endif %}{% if tarefa_item.cliente %} · {{ tarefa_item.cliente.nome_fantasia }}{% endif %}</small>
+                </span>
+            </a>
+            {% empty %}
+            <p class="notification-empty">Nenhum ticket vencido ou para hoje.</p>
+            {% endfor %}
+        </section>
+        {% if painel_tarefas_pessoais %}
+        <section class="notification-section" data-dismissible-section>
+            <div class="notification-section-title">
+                <h3>📝 Meus lembretes</h3>
+                <a class="notification-inbox-link" href="{% url 'area_gabriel' %}">Ver página</a>
+            </div>
+            {% for tarefa_pessoal in painel_tarefas_pessoais %}
+            <div class="notification-update-row">
+                <a class="notification-item routine" href="{% url 'area_gabriel' %}">
+                    <span class="notification-dot"></span>
+                    <span>
+                        <strong>{{ tarefa_pessoal.titulo }}</strong>
+                        <small>{{ tarefa_pessoal.get_area_display }} · {% if tarefa_pessoal.data_conclusao < painel_hoje %}Atrasada desde {{ tarefa_pessoal.data_conclusao|date:'d/m/Y' }}{% else %}Para hoje{% endif %}</small>
+                    </span>
+                </a>
+                <button type="button" class="notification-dismiss"
+                        data-dismiss-url="{% url 'concluir_tarefa_pessoal' tarefa_pessoal.id %}"
+                        aria-label="Concluir {{ tarefa_pessoal.titulo }}">OK</button>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
         {% if painel_tickets_plantao %}
         <section class="notification-section">
             <div class="notification-section-title">
@@ -33,6 +70,28 @@
                     <small>{% if ticket_plantao.cliente %}{{ ticket_plantao.cliente.nome_fantasia }} · {% endif %}{{ ticket_plantao.get_prioridade_display }}</small>
                 </span>
             </a>
+            {% endfor %}
+        </section>
+        {% endif %}
+        {% if painel_despesas_hoje %}
+        <section class="notification-section" data-dismissible-section>
+            <div class="notification-section-title">
+                <h3>💰 Financeiro hoje</h3>
+                <a class="notification-inbox-link" href="{% url 'financeiro' %}">Ver financeiro</a>
+            </div>
+            {% for despesa in painel_despesas_hoje %}
+            <div class="notification-update-row">
+                <a class="notification-item finance" href="{% url 'financeiro' %}">
+                    <span class="notification-dot"></span>
+                    <span>
+                        <strong>{{ despesa.titulo }}</strong>
+                        <small>Vence hoje · R$ {{ despesa.valor|floatformat:2 }}</small>
+                    </span>
+                </a>
+                <button type="button" class="notification-dismiss"
+                        data-dismiss-url="{% url 'confirmar_despesa_popup' despesa.id %}"
+                        aria-label="Confirmar pagamento de {{ despesa.titulo }}">OK</button>
+            </div>
             {% endfor %}
         </section>
         {% endif %}
@@ -58,38 +117,6 @@
             {% endfor %}
         </section>
         {% endif %}
-        {% if painel_despesas_hoje %}
-        <section class="notification-section">
-            <div class="notification-section-title">
-                <h3>💰 Financeiro hoje</h3>
-                <a class="notification-inbox-link" href="{% url 'financeiro' %}">Ver financeiro</a>
-            </div>
-            {% for despesa in painel_despesas_hoje %}
-            <a class="notification-item finance" href="{% url 'financeiro' %}">
-                <span class="notification-dot"></span>
-                <span>
-                    <strong>{{ despesa.titulo }}</strong>
-                    <small>Vence hoje · R$ {{ despesa.valor|floatformat:2 }}</small>
-                </span>
-            </a>
-            {% endfor %}
-        </section>
-        {% endif %}
-        <section class="notification-section">
-            <h3>⏰ Prazos</h3>
-            {% for tarefa_item in painel_prazos %}
-            <a class="notification-item deadline {% if tarefa_item.prazo < painel_hoje %}overdue{% else %}today{% endif %}"
-               href="{% url 'detalhes_tarefa' tarefa_item.id %}">
-                <span class="notification-dot"></span>
-                <span>
-                    <strong>{{ tarefa_item.titulo }}</strong>
-                    <small>{% if tarefa_item.prazo < painel_hoje %}Venceu em {{ tarefa_item.prazo|date:'d/m/Y' }}{% else %}Vence hoje{% endif %}{% if tarefa_item.cliente %} · {{ tarefa_item.cliente.nome_fantasia }}{% endif %}</small>
-                </span>
-            </a>
-            {% empty %}
-            <p class="notification-empty">Nenhum ticket vencido ou para hoje.</p>
-            {% endfor %}
-        </section>
         <section class="notification-section">
             <div class="notification-section-title">
                 <h3>📥 Comunicados</h3>

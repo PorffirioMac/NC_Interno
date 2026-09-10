@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ sugestao.titulo }} - Sugestões de Desenvolvimento</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 920px; margin: 30px auto; padding: 0 20px; }.voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
+        .card { background: white; padding: 32px; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; margin-bottom: 22px; }
+        .cabecalho { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid #eee; }.cabecalho h1 { font-size: 25px; }
+        .acoes { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }.tag { background: #e8f0fe; color: #1a73e8; padding: 7px 12px; border-radius: 20px; }.editar { background: #1a73e8; color: white; padding: 8px 13px; border-radius: 8px; text-decoration: none; white-space: nowrap; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 23px; }.campo span { display: block; color: #777; font-size: 13px; margin-bottom: 5px; }
+        .descricao { margin-top: 25px; padding-top: 21px; border-top: 1px solid #eee; line-height: 1.6; }.descricao h2 { margin-bottom: 12px; font-size: 18px; }
+        .mensagens { list-style: none; margin-bottom: 16px; }.mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
+        .attachment-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }.attachment-heading h2 { margin-bottom: 5px; }.attachment-heading p { color: #667085; font-size: 13px; }
+        .attachment-upload { min-width: 300px; flex: 1; max-width: 440px; }.attachment-upload input { width: 100%; margin-bottom: 9px; }.attachment-upload small { display: block; color: #667085; margin-top: 7px; }
+        .btn { border: 0; border-radius: 8px; padding: 9px 14px; background: #1a73e8; color: white; cursor: pointer; }.attachment-list { margin-top: 22px; display: grid; gap: 10px; }
+        .attachment-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #e0e5ec; border-radius: 10px; }.attachment-download { color: #1a73e8; font-weight: 700; text-decoration: none; }.attachment-item small { display: block; color: #748094; margin-top: 3px; }.attachment-remove { border: 1px solid #d92d20; background: transparent; color: #d92d20; border-radius: 7px; padding: 6px 9px; cursor: pointer; }.attachment-empty { color: #7a8493; }
+        @media (max-width: 650px) { .cabecalho { flex-direction: column; }.grid { grid-template-columns: 1fr; }.attachment-upload { min-width: 100%; }.attachment-item { grid-template-columns: auto 1fr; }.attachment-item form { grid-column: 2; } }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2"><script src="/static/app/theme.js?v=20260910-2"></script>
+</head>
+<body>
+    <div class="topo"><h2>💡 Sugestão de Desenvolvimento</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container"><a class="voltar" href="{% url 'sugestoes_desenvolvimento' %}">← Voltar para a lista</a>
+        {% if messages %}<ul class="mensagens">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>{% endif %}
+        <article class="card">
+            <div class="cabecalho"><h1>{{ sugestao.titulo }}</h1><div class="acoes"><span class="tag">{{ sugestao.get_modulo_display }}</span><a class="editar" href="{% url 'editar_sugestao_desenvolvimento' sugestao.id %}">Editar</a></div></div>
+            <div class="grid">
+                <div class="campo"><span>Cliente</span><strong>{% if sugestao.cliente %}<a href="{% url 'detalhes_cliente' sugestao.cliente.id %}">{{ sugestao.cliente.nome_fantasia }}</a>{% else %}Sem cliente vinculado{% endif %}</strong></div>
+                <div class="campo"><span>Registrado por</span><strong>{{ sugestao.criado_por.username|default:"Usuário removido" }}</strong></div>
+            </div>
+            <div class="descricao"><h2>Descrição completa</h2>{{ sugestao.descricao|linebreaks }}</div>
+        </article>
+        <section class="card">
+            <div class="attachment-heading"><div><h2>📎 Anexos</h2><p>Arquivos e referências relacionados à sugestão.</p></div>
+                <form method="post" enctype="multipart/form-data" class="attachment-upload">{% csrf_token %}<input type="hidden" name="enviar_anexo" value="1"><input type="file" name="arquivo" required accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"><button type="submit" class="btn">Enviar anexo</button><small>Limite de 20 MB por arquivo. Executáveis não são aceitos.</small></form>
+            </div>
+            <div class="attachment-list">{% for anexo in sugestao.anexos.all %}<div class="attachment-item"><span>📄</span><div><a class="attachment-download" href="{% url 'baixar_anexo_sugestao_desenvolvimento' anexo.id %}">{{ anexo.nome_original }}</a><small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small></div><form method="post" action="{% url 'remover_anexo_sugestao_desenvolvimento' anexo.id %}">{% csrf_token %}<button type="submit" class="attachment-remove" onclick="return confirm('Remover definitivamente este anexo?')">Remover</button></form></div>{% empty %}<p class="attachment-empty">Nenhum arquivo anexado a esta sugestão.</p>{% endfor %}</div>
+        </section>
+    </main>
+</body>
+</html>

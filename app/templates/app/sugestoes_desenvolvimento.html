@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sugestões de Desenvolvimento - NC Interno</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+        .topo { background: linear-gradient(135deg, #1a73e8, #1557b0); color: white; padding: 16px 32px; }
+        .container { max-width: 1250px; margin: 30px auto; padding: 0 20px; }
+        .intro { margin-bottom: 20px; }.intro h1 { font-size: 24px; margin-bottom: 5px; }.intro p { color: #667085; }
+        .actions { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+        .busca { display: flex; gap: 8px; flex: 1; max-width: 680px; }
+        input { width: 100%; padding: 11px 14px; border: 1px solid #ddd; border-radius: 8px; }
+        .btn { border: 0; border-radius: 8px; padding: 11px 18px; background: #1a73e8; color: white; text-decoration: none; cursor: pointer; white-space: nowrap; }
+        .table-wrap { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px #0000000f; }
+        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #eee; vertical-align: top; }
+        th { background: #f7f9fc; } td a { color: #1a73e8; text-decoration: none; font-weight: 700; }
+        .modulo { display: inline-block; background: #e8f0fe; color: #1a73e8; border-radius: 14px; padding: 4px 9px; font-size: 12px; }
+        .anexos { white-space: nowrap; }.vazio { background: white; padding: 42px; text-align: center; border-radius: 12px; color: #777; }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2"><script src="/static/app/theme.js?v=20260910-2"></script>
+</head>
+<body>
+    <div class="topo"><h2>💡 Sugestões de Desenvolvimento</h2></div>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <div class="intro"><h1>Lista de sugestões</h1><p>Registre necessidades e melhorias identificadas pela equipe ou pelos clientes.</p></div>
+        <div class="actions">
+            <form method="get" class="busca"><input type="search" name="busca" value="{{ busca }}" placeholder="Buscar por título, descrição ou cliente"><button class="btn" type="submit">Buscar</button></form>
+            <a class="btn" href="{% url 'criar_sugestao_desenvolvimento' %}">+ Nova Sugestão</a>
+        </div>
+        {% if sugestoes %}
+        <div class="table-wrap"><table>
+            <thead><tr><th>Título</th><th>Módulo</th><th>Cliente</th><th>Anexos</th><th>Atualização</th></tr></thead>
+            <tbody>{% for sugestao in sugestoes %}<tr>
+                <td><a href="{% url 'detalhes_sugestao_desenvolvimento' sugestao.id %}">{{ sugestao.titulo }}</a></td>
+                <td><span class="modulo">{{ sugestao.get_modulo_display }}</span></td>
+                <td>{% if sugestao.cliente %}{{ sugestao.cliente.nome_fantasia }}{% else %}Sem cliente vinculado{% endif %}</td>
+                <td class="anexos">📎 {{ sugestao.total_anexos }}</td>
+                <td>{{ sugestao.atualizado_em|date:"d/m/Y H:i" }}</td>
+            </tr>{% endfor %}</tbody>
+        </table></div>
+        {% else %}<div class="vazio">Nenhuma sugestão de desenvolvimento encontrada.</div>{% endif %}
+    </main>
+</body>
+</html>

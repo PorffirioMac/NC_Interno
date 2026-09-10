@@ -347,6 +347,29 @@ class Comment(models.Model):
         return f"Comentário de {self.autor} em {self.criado_em.strftime('%d/%m/%Y %H:%M')}"
 
 
+class TarefaPessoal(models.Model):
+    AREAS = [
+        ('casa_yakisoba', 'Casa do Yakisoba'),
+        ('gabriel', 'Gabriel'),
+    ]
+
+    titulo = models.CharField('Tarefa', max_length=300)
+    area = models.CharField('Área', max_length=30, choices=AREAS)
+    data_conclusao = models.DateField('Data de conclusão')
+    concluida = models.BooleanField(default=False)
+    concluida_em = models.DateTimeField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['concluida', 'data_conclusao', 'titulo']
+        permissions = [
+            ('acessar_area_gabriel', 'Pode acessar a área privada Gabriel'),
+        ]
+
+    def __str__(self):
+        return self.titulo
+
+
 class AnexoTicket(models.Model):
     tarefa = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='anexos')
     arquivo = models.FileField(upload_to='tickets/anexos/%Y/%m/')
@@ -434,6 +457,61 @@ class AnexoErroConhecido(models.Model):
         return self.nome_original
 
 
+class SugestaoDesenvolvimento(models.Model):
+    titulo = models.CharField('Título', max_length=200)
+    modulo = models.CharField(
+        'Módulo',
+        max_length=30,
+        choices=MODULOS_SISTEMA,
+    )
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sugestoes_desenvolvimento',
+    )
+    descricao = models.TextField('Descrição completa')
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='sugestoes_desenvolvimento_criadas',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-atualizado_em']
+
+    def __str__(self):
+        return self.titulo
+
+
+class AnexoSugestaoDesenvolvimento(models.Model):
+    sugestao = models.ForeignKey(
+        SugestaoDesenvolvimento,
+        on_delete=models.CASCADE,
+        related_name='anexos',
+    )
+    arquivo = models.FileField(upload_to='sugestoes-desenvolvimento/anexos/%Y/%m/')
+    nome_original = models.CharField(max_length=255)
+    tamanho = models.PositiveBigIntegerField(default=0)
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='anexos_sugestoes_desenvolvimento_enviados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.nome_original
+
+
 class DespesaFinanceira(models.Model):
     titulo = models.CharField('Despesa', max_length=150)
     descricao = models.TextField('Descrição', blank=True)
@@ -465,6 +543,32 @@ class DespesaFinanceira(models.Model):
 
     def __str__(self):
         return f'{self.titulo} - dia {self.dia_vencimento}'
+
+
+class ConfirmacaoDespesaFinanceira(models.Model):
+    despesa = models.ForeignKey(
+        DespesaFinanceira,
+        on_delete=models.CASCADE,
+        related_name='confirmacoes',
+    )
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='confirmacoes_despesas_financeiras',
+    )
+    competencia = models.DateField()
+    confirmada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['despesa', 'usuario', 'competencia'],
+                name='confirmacao_despesa_usuario_competencia_unica',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.despesa} confirmado por {self.usuario} em {self.competencia:%m/%Y}'
 
 
 class Rotina(models.Model):
