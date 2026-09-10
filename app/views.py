@@ -11,7 +11,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.db.models import Count, F, Max, Q
+from django.db.models import Case, Count, F, IntegerField, Max, Q, Value, When
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
@@ -60,6 +60,18 @@ def _pode_acessar_area_gabriel(usuario):
 
 def _area_gabriel_desbloqueada(request):
     return request.session.get('area_gabriel_pin_ate', 0) > timezone.now().timestamp()
+
+
+def _ordenar_tarefas_pessoais(queryset):
+    return queryset.annotate(
+        ordem_prioridade=Case(
+            When(prioridade='alta', then=Value(1)),
+            When(prioridade='media', then=Value(2)),
+            When(prioridade='baixa', then=Value(3)),
+            default=Value(4),
+            output_field=IntegerField(),
+        ),
+    ).order_by('ordem_prioridade', 'data_conclusao', 'titulo')
 
 
 def notificar_atribuicao(tarefa, destinatario, ator):
@@ -977,18 +989,28 @@ def area_gabriel(request):
     if request.method == 'POST' and 'criar_tarefa_pessoal' in request.POST:
         titulo = request.POST.get('titulo', '').strip()
         area = request.POST.get('area', '')
+        prioridade = request.POST.get('prioridade', 'media')
         data_texto = request.POST.get('data_conclusao', '')
-        try:
-            data_conclusao = date.fromisoformat(data_texto)
-        except ValueError:
-            data_conclusao = None
-        if not titulo or area not in dict(TarefaPessoal.AREAS) or not data_conclusao:
+        if data_texto:
+            try:
+                data_conclusao = date.fromisoformat(data_texto)
+            except ValueError:
+                data_conclusao = None
+        else:
+            data_conclusao = date.today() + timedelta(days=3)
+        if (
+            not titulo
+            or area not in dict(TarefaPessoal.AREAS)
+            or prioridade not in dict(TarefaPessoal.PRIORIDADES)
+            or not data_conclusao
+        ):
             messages.error(request, 'Informe a tarefa, a área e uma data válida.')
         else:
             TarefaPessoal.objects.create(
                 titulo=titulo,
                 area=area,
                 data_conclusao=data_conclusao,
+                prioridade=prioridade,
             )
             messages.success(request, 'Lembrete criado com sucesso!')
         return redirect('area_gabriel')
@@ -1003,8 +1025,8 @@ def area_gabriel(request):
     return render(request, 'app/area_gabriel.html', {
         'tickets_netcamp': tickets_netcamp,
         'fases_netcamp': dict(Task.FASES_TICKETS),
-        'tarefas_casa': TarefaPessoal.objects.filter(area='casa_yakisoba', concluida=False).prefetch_related('comentarios'),
-        'tarefas_gabriel': TarefaPessoal.objects.filter(area='gabriel', concluida=False).prefetch_related('comentarios'),
+        'tarefas_casa': _ordenar_tarefas_pessoais(TarefaPessoal.objects.filter(area='casa_yakisoba', concluida=False).prefetch_related('comentarios')),
+        'tarefas_gabriel': _ordenar_tarefas_pessoais(TarefaPessoal.objects.filter(area='gabriel', concluida=False).prefetch_related('comentarios')),
         'tarefas_arquivadas': TarefaPessoal.objects.filter(
             concluida=True,
         ).prefetch_related('comentarios').order_by('-concluida_em', '-data_conclusao'),
@@ -1037,6 +1059,22 @@ def reabrir_tarefa_pessoal(request, tarefa_id):
     tarefa.save(update_fields=['concluida', 'concluida_em'])
     messages.success(request, 'Tarefa reaberta e devolvida ao checklist.')
     return redirect('area_gabriel')
+
+
+@login_required(login_url='/login/')
+@require_POST
+def alterar_prioridade_tarefa_pessoal(request, tarefa_id):
+    if not _pode_acessar_area_gabriel(request.user) or not _area_gabriel_desbloqueada(request):
+        raise PermissionDenied
+    tarefa = get_object_or_404(TarefaPessoal, id=tarefa_id)
+    prioridade = request.POST.get('prioridade', '')
+    if prioridade not in dict(TarefaPessoal.PRIORIDADES):
+        messages.error(request, 'Selecione uma prioridade válida.')
+    else:
+        tarefa.prioridade = prioridade
+        tarefa.save(update_fields=['prioridade'])
+        messages.success(request, 'Prioridade atualizada.')
+    return redirect(f"{reverse('area_gabriel')}?tarefa={tarefa.id}")
 
 
 @login_required(login_url='/login/')

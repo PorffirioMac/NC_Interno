@@ -2,7 +2,7 @@ from datetime import date
 from calendar import monthrange
 
 from django import template
-from django.db.models import Max
+from django.db.models import Case, IntegerField, Max, Value, When
 
 from app.models import (
     ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira,
@@ -44,7 +44,15 @@ def painel_notificacoes(context):
             TarefaPessoal.objects.filter(
                 concluida=False,
                 data_conclusao__lte=hoje,
-            ).order_by('data_conclusao', 'area', 'titulo')
+            ).annotate(
+                ordem_prioridade=Case(
+                    When(prioridade='alta', then=Value(1)),
+                    When(prioridade='media', then=Value(2)),
+                    When(prioridade='baixa', then=Value(3)),
+                    default=Value(4),
+                    output_field=IntegerField(),
+                ),
+            ).order_by('ordem_prioridade', 'data_conclusao', 'area', 'titulo')
         )
     marcador_pessoal = max(
         (item.data_conclusao.toordinal() * 1_000_000 + item.id for item in tarefas_pessoais),

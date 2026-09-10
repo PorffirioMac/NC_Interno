@@ -2,11 +2,12 @@
     {% if not item.concluida %}
     <form method="post" action="{% url 'concluir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="check-button" type="submit" title="Concluir">☐</button></form>
     {% else %}<span aria-label="Concluída">☑</span>{% endif %}
-    <div><button type="button" class="task-history-open" data-dialog="historico-{{ item.id }}">{{ item.titulo }}</button><small>{% if item.concluida %}Concluída{% else %}Conclusão: {{ item.data_conclusao|date:'d/m/Y' }}{% endif %} · {{ item.comentarios.count }} comentário{{ item.comentarios.count|pluralize }}</small></div>
+    <div><button type="button" class="task-history-open" data-dialog="historico-{{ item.id }}">{{ item.titulo }}</button><small>{% if item.concluida %}Concluída{% else %}Conclusão: {{ item.data_conclusao|date:'d/m/Y' }}{% endif %} · <span class="priority-badge prioridade-{{ item.prioridade }}">{{ item.get_prioridade_display }}</span> · {{ item.comentarios.count }} comentário{{ item.comentarios.count|pluralize }}</small></div>
     {% if item.concluida %}<form method="post" action="{% url 'reabrir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="reopen-button" type="submit">Reabrir</button></form>{% endif %}
 </div>
 <dialog class="task-history-dialog" id="historico-{{ item.id }}">
     <div class="task-history-head"><div><small>{{ item.get_area_display }}</small><h3>{{ item.titulo }}</h3></div><button type="button" class="task-history-close" aria-label="Fechar">×</button></div>
+    <form method="post" action="{% url 'alterar_prioridade_tarefa_pessoal' item.id %}" class="task-priority-form">{% csrf_token %}<label>Prioridade</label><select name="prioridade"><option value="alta" {% if item.prioridade == 'alta' %}selected{% endif %}>Alta</option><option value="media" {% if item.prioridade == 'media' %}selected{% endif %}>Média</option><option value="baixa" {% if item.prioridade == 'baixa' %}selected{% endif %}>Baixa</option></select><button class="btn" type="submit">Atualizar</button></form>
     <div class="task-history-list">
         {% for comentario in item.comentarios.all %}
         <article class="task-comment">

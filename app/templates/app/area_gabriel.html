@@ -31,9 +31,11 @@
         .private-card-actions a { color: var(--primary); font-size: 12px; text-decoration: none; }
         .simple-list h2 { margin-bottom: 5px; }
         .simple-list > p { margin-bottom: 16px; color: var(--text-muted) !important; font-size: 13px; }
-        .simple-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 16px; }
+        .simple-add { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
         .simple-add input[name="titulo"] { grid-column: 1 / -1; }
+        .simple-add .btn { grid-column: 1 / -1; }
         .simple-add input { min-width: 0; margin: 0 !important; padding: 10px; }
+        .date-default-hint { display: block; margin: -8px 0 13px; color: var(--text-muted); font-size: 11px; }
         .simple-task { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
         .simple-task:last-child { border-bottom: 0; }
         .simple-task.done strong { text-decoration: line-through; color: var(--text-muted) !important; }
@@ -53,6 +55,10 @@
         .task-history-head small { color: var(--text-muted); }
         .task-history-close { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--surface-muted); color: var(--text); font-size: 22px; cursor: pointer; box-shadow: none !important; }
         .task-history-list { max-height: 42vh; padding: 18px 22px; overflow-y: auto; }
+        .task-priority-form { display: flex; align-items: center; gap: 9px; padding: 12px 22px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .task-priority-form label { font-size: 12px; font-weight: 800; }
+        .task-priority-form select { flex: 1; padding: 8px; }
+        .task-priority-form .btn { padding: 8px 12px; }
         .task-comment { padding: 13px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
         .task-comment-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--text-muted); font-size: 11px; }
         .task-comment-meta form { margin: 0; }
@@ -95,12 +101,14 @@
 
         <section class="private-section simple-list">
                 <h2>🍜 Casa do Yakisoba</h2><p>Checklist de tarefas do restaurante</p>
-                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="casa_yakisoba"><input name="titulo" placeholder="Nova tarefa" required><input type="date" name="data_conclusao" required><button class="btn" type="submit">Adicionar</button></form>
+                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="casa_yakisoba"><input name="titulo" placeholder="Nova tarefa" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
+                    <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
                     {% for item in tarefas_casa %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
         </section>
         <section class="private-section simple-list">
                 <h2>👤 Gabriel</h2><p>Checklist de lembretes pessoais</p>
-                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="gabriel"><input name="titulo" placeholder="Novo lembrete" required><input type="date" name="data_conclusao" required><button class="btn" type="submit">Adicionar</button></form>
+                    <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="gabriel"><input name="titulo" placeholder="Novo lembrete" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
+                    <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
                     {% for item in tarefas_gabriel %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
         </section>
         </div>

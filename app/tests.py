@@ -1525,6 +1525,55 @@ class AreaGabrielTests(TestCase):
         configuracao.refresh_from_db()
         self.assertTrue(check_password('3333', configuracao.pin_hash))
 
+    def test_checklist_ordena_por_prioridade_e_permite_alterar(self):
+        baixa = TarefaPessoal.objects.create(
+            titulo='Tarefa baixa', area='gabriel',
+            data_conclusao=date.today(), prioridade='baixa',
+        )
+        media = TarefaPessoal.objects.create(
+            titulo='Tarefa média', area='gabriel',
+            data_conclusao=date.today(), prioridade='media',
+        )
+        alta = TarefaPessoal.objects.create(
+            titulo='Tarefa alta', area='gabriel',
+            data_conclusao=date.today(), prioridade='alta',
+        )
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+
+        pagina = self.client.get(reverse('area_gabriel'))
+        self.assertEqual(
+            list(pagina.context['tarefas_gabriel']),
+            [alta, media, baixa],
+        )
+
+        self.client.post(
+            reverse('alterar_prioridade_tarefa_pessoal', args=[baixa.id]),
+            {'prioridade': 'alta'},
+        )
+        baixa.refresh_from_db()
+        self.assertEqual(baixa.prioridade, 'alta')
+
+    def test_tarefa_sem_data_recebe_prazo_de_tres_dias(self):
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+
+        resposta = self.client.post(reverse('area_gabriel'), {
+            'criar_tarefa_pessoal': '1',
+            'titulo': 'Tarefa sem data informada',
+            'area': 'gabriel',
+            'prioridade': 'alta',
+            'data_conclusao': '',
+        })
+
+        self.assertRedirects(resposta, reverse('area_gabriel'))
+        tarefa = TarefaPessoal.objects.get(titulo='Tarefa sem data informada')
+        self.assertEqual(tarefa.data_conclusao, date.today() + timedelta(days=3))
+
     def test_kanban_exibe_somente_ticket_tecnico_atribuido_ao_gabriel(self):
         ticket_gabriel = Task.objects.create(
             titulo='Ticket técnico do Gabriel',

@@ -352,10 +352,20 @@ class TarefaPessoal(models.Model):
         ('casa_yakisoba', 'Casa do Yakisoba'),
         ('gabriel', 'Gabriel'),
     ]
+    PRIORIDADES = [
+        ('alta', 'Alta'),
+        ('media', 'Média'),
+        ('baixa', 'Baixa'),
+    ]
 
     titulo = models.CharField('Tarefa', max_length=300)
     area = models.CharField('Área', max_length=30, choices=AREAS)
     data_conclusao = models.DateField('Data de conclusão')
+    prioridade = models.CharField(
+        max_length=10,
+        choices=PRIORIDADES,
+        default='media',
+    )
     concluida = models.BooleanField(default=False)
     concluida_em = models.DateTimeField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)

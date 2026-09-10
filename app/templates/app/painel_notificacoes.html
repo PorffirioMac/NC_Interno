@@ -46,7 +46,7 @@
                     <span class="notification-dot"></span>
                     <span>
                         <strong>{{ tarefa_pessoal.titulo }}</strong>
-                        <small>{{ tarefa_pessoal.get_area_display }} · {% if tarefa_pessoal.data_conclusao < painel_hoje %}Atrasada desde {{ tarefa_pessoal.data_conclusao|date:'d/m/Y' }}{% else %}Para hoje{% endif %}</small>
+                        <small>{{ tarefa_pessoal.get_area_display }} · {{ tarefa_pessoal.get_prioridade_display }} · {% if tarefa_pessoal.data_conclusao < painel_hoje %}Atrasada desde {{ tarefa_pessoal.data_conclusao|date:'d/m/Y' }}{% else %}Para hoje{% endif %}</small>
                     </span>
                 </a>
                 <button type="button" class="notification-dismiss"
