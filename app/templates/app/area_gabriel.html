@@ -97,6 +97,12 @@
                         </article>
                         {% empty %}<p class="search-empty">Você não possui tickets técnicos pendentes.</p>{% endfor %}
             </div>
+            <div class="simple-list" style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border, #d6deea);">
+                <h3>✅ Tarefas rápidas NetCamp</h3><p>Checklist para atividades simples que não precisam de ticket</p>
+                <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="netcamp"><input name="titulo" placeholder="Nova tarefa rápida" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
+                <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
+                {% for item in tarefas_netcamp %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa rápida cadastrada.</p>{% endfor %}
+            </div>
         </section>
 
         <section class="private-section simple-list">

@@ -349,6 +349,7 @@ class Comment(models.Model):
 
 class TarefaPessoal(models.Model):
     AREAS = [
+        ('netcamp', 'NetCamp'),
         ('casa_yakisoba', 'Casa do Yakisoba'),
         ('gabriel', 'Gabriel'),
     ]

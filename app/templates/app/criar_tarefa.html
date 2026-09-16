@@ -22,11 +22,6 @@
         .btn { background: #1a73e8; color: white; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
         .btn:hover { background: #1557b0; }
         .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
-        .cliente-busca { position: relative; }
-        .cliente-opcoes { position: absolute; z-index: 20; top: calc(100% + 5px); left: 0; right: 0; max-height: 260px; overflow-y: auto; padding: 6px; background: var(--surface-strong, white); border: 1px solid var(--border, #ddd); border-radius: 9px; box-shadow: var(--shadow, 0 8px 20px rgba(0,0,0,.14)); }
-        .cliente-opcao { display: block; width: 100%; padding: 10px 11px; border: 0; border-radius: 6px; background: transparent; color: var(--text, #222); text-align: left; cursor: pointer; }
-        .cliente-opcao:hover, .cliente-opcao.ativa { background: var(--primary-soft, #e8f1fc); }
-        .cliente-vazio { padding: 12px; color: var(--text-muted, #666); font-size: 14px; }
         .btn { grid-column: 1 / -1; margin-top: 4px; }
         @media (max-width: 720px) {
             .container { padding: 0 14px 28px; margin-top: 22px; }
@@ -84,17 +79,12 @@
                 </div>
                 <div>
                     <label>Cliente</label>
-                    <div class="cliente-busca" id="clienteBusca">
-                        <input type="search" id="clienteTexto" placeholder="Digite o ID, nome fantasia ou razão social" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="clienteOpcoes" aria-expanded="false">
-                        <input type="hidden" name="cliente" id="clienteValor" value="{{ request.POST.cliente }}">
-                        <div class="cliente-opcoes" id="clienteOpcoes" role="listbox" hidden>
-                        <button type="button" class="cliente-opcao" data-id="" data-label="Sem cliente vinculado" data-search="sem cliente vinculado">— Sem cliente vinculado —</button>
+                    <input type="search" name="cliente_busca" list="listaClientes" value="{{ request.POST.cliente_busca }}" placeholder="Digite o ID, nome fantasia ou razão social" autocomplete="off">
+                    <datalist id="listaClientes">
                         {% for cliente in clientes %}
-                        <button type="button" class="cliente-opcao" data-id="{{ cliente.id }}" data-label="{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}" data-search="{{ cliente.codigo }} {{ cliente.nome_fantasia }} {{ cliente.razao_social }}">{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}</button>
+                        <option value="{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}">{{ cliente.razao_social }}</option>
                         {% endfor %}
-                        <div class="cliente-vazio" id="clienteVazio" hidden>Nenhum cliente encontrado.</div>
-                        </div>
-                    </div>
+                    </datalist>
                 </div>
                 <div>
                     <label>Prazo de conclusão</label>
@@ -122,68 +112,5 @@
             </form>
         </div>
     </div>
-    <script>
-        (() => {
-            const busca = document.getElementById('clienteBusca');
-            const texto = document.getElementById('clienteTexto');
-            const valor = document.getElementById('clienteValor');
-            const lista = document.getElementById('clienteOpcoes');
-            const vazio = document.getElementById('clienteVazio');
-            const opcoes = [...lista.querySelectorAll('.cliente-opcao')];
-            let indiceAtivo = -1;
-
-            const normalizar = (conteudo) => conteudo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-            const abrir = () => { lista.hidden = false; texto.setAttribute('aria-expanded', 'true'); };
-            const fechar = () => { lista.hidden = true; texto.setAttribute('aria-expanded', 'false'); indiceAtivo = -1; };
-            const visiveis = () => opcoes.filter((opcao) => !opcao.hidden);
-            const destacar = (indice) => {
-                const itens = visiveis();
-                opcoes.forEach((opcao) => opcao.classList.remove('ativa'));
-                if (!itens.length) return;
-                indiceAtivo = (indice + itens.length) % itens.length;
-                itens[indiceAtivo].classList.add('ativa');
-                itens[indiceAtivo].scrollIntoView({ block: 'nearest' });
-            };
-            const selecionar = (opcao) => {
-                valor.value = opcao.dataset.id;
-                texto.value = opcao.dataset.id ? opcao.dataset.label : '';
-                texto.dataset.selecionado = texto.value;
-                fechar();
-            };
-            const filtrar = () => {
-                if (texto.value !== (texto.dataset.selecionado || '')) valor.value = '';
-                const termo = normalizar(texto.value);
-                let encontrados = 0;
-                opcoes.forEach((opcao) => {
-                    opcao.hidden = Boolean(termo && !normalizar(opcao.dataset.search).includes(termo));
-                    if (!opcao.hidden) encontrados += 1;
-                });
-                vazio.hidden = encontrados > 0;
-                indiceAtivo = -1;
-                abrir();
-            };
-
-            const inicialmenteSelecionada = opcoes.find((opcao) => opcao.dataset.id === valor.value && valor.value);
-            if (inicialmenteSelecionada) {
-                texto.value = inicialmenteSelecionada.dataset.label;
-                texto.dataset.selecionado = texto.value;
-            }
-            texto.addEventListener('focus', filtrar);
-            texto.addEventListener('input', filtrar);
-            texto.addEventListener('keydown', (evento) => {
-                if (evento.key === 'ArrowDown') { evento.preventDefault(); abrir(); destacar(indiceAtivo + 1); }
-                if (evento.key === 'ArrowUp') { evento.preventDefault(); abrir(); destacar(indiceAtivo - 1); }
-                if (evento.key === 'Enter' && indiceAtivo >= 0) { evento.preventDefault(); selecionar(visiveis()[indiceAtivo]); }
-                if (evento.key === 'Escape') fechar();
-            });
-            opcoes.forEach((opcao) => opcao.addEventListener('mousedown', (evento) => {
-                evento.preventDefault();
-                selecionar(opcao);
-            }));
-            busca.addEventListener('focusout', () => setTimeout(() => {
-                if (!busca.contains(document.activeElement)) fechar();
-            }, 100));
-        })();
-    </script>
 </body>
 </html>

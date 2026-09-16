@@ -726,6 +726,21 @@ def criar_cliente(request):
 
 
 @login_required(login_url='/login/')
+def editar_cliente(request, cliente_id):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+    form = ClienteForm(request.POST or None, instance=cliente)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Cadastro do cliente atualizado com sucesso!')
+        return redirect('detalhes_cliente', cliente_id=cliente.id)
+    return render(request, 'app/form_cliente.html', {
+        'form': form,
+        'cliente': cliente,
+        'editando': True,
+    })
+
+
+@login_required(login_url='/login/')
 def detalhes_cliente(request, cliente_id):
     cliente = get_object_or_404(Cliente, id=cliente_id)
     if request.method == 'POST' and 'salvar_observacoes' in request.POST:
@@ -1025,6 +1040,7 @@ def area_gabriel(request):
     return render(request, 'app/area_gabriel.html', {
         'tickets_netcamp': tickets_netcamp,
         'fases_netcamp': dict(Task.FASES_TICKETS),
+        'tarefas_netcamp': _ordenar_tarefas_pessoais(TarefaPessoal.objects.filter(area='netcamp', concluida=False).prefetch_related('comentarios')),
         'tarefas_casa': _ordenar_tarefas_pessoais(TarefaPessoal.objects.filter(area='casa_yakisoba', concluida=False).prefetch_related('comentarios')),
         'tarefas_gabriel': _ordenar_tarefas_pessoais(TarefaPessoal.objects.filter(area='gabriel', concluida=False).prefetch_related('comentarios')),
         'tarefas_arquivadas': TarefaPessoal.objects.filter(
@@ -1462,6 +1478,37 @@ def criar_tarefa(request):
         cliente = None
         if request.POST.get('cliente'):
             cliente = get_object_or_404(Cliente, id=request.POST['cliente'], ativo=True)
+        elif request.POST.get('cliente_busca', '').strip():
+            busca_cliente = request.POST['cliente_busca'].strip()
+            codigo_digitado = busca_cliente.split('·', 1)[0].strip()
+            candidatos = Cliente.objects.filter(ativo=True).filter(
+                Q(codigo__iexact=codigo_digitado)
+                | Q(nome_fantasia__iexact=busca_cliente)
+                | Q(razao_social__iexact=busca_cliente)
+            )
+            if not candidatos.exists():
+                candidatos = Cliente.objects.filter(ativo=True).filter(
+                    Q(codigo__icontains=busca_cliente)
+                    | Q(nome_fantasia__icontains=busca_cliente)
+                    | Q(razao_social__icontains=busca_cliente)
+                )
+            if candidatos.count() == 1:
+                cliente = candidatos.first()
+            else:
+                messages.error(
+                    request,
+                    'Selecione um cliente da lista de sugestões.'
+                    if candidatos.exists()
+                    else 'Nenhum cliente foi encontrado com esse texto.',
+                )
+                return render(request, 'app/criar_tarefa.html', {
+                    'users': users,
+                    'status_choices': Task.STATUS_CHOICES,
+                    'modulos': Task.MODULOS,
+                    'fases': fases_disponiveis,
+                    'area': area,
+                    'clientes': Cliente.objects.filter(ativo=True),
+                })
 
         tarefa = Task.objects.create(
             titulo=request.POST['titulo'],

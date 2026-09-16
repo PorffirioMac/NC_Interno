@@ -31,12 +31,18 @@
             <a class="btn" href="{% url 'clientes' %}">Voltar aos Clientes Ativos</a>
         </div>
         {% if clientes %}<div class="table-wrap"><table>
-            <thead><tr><th>ID</th><th>Cliente</th><th>CNPJ</th><th>Inativado em</th><th>Motivo do cancelamento</th></tr></thead>
+            <thead><tr><th>ID</th><th>Cliente</th><th>CNPJ</th><th>Inativado em</th><th>Motivo do cancelamento</th><th>Ações</th></tr></thead>
             <tbody>{% for cliente in clientes %}<tr>
                 <td>{{ cliente.codigo|default:'—' }}</td>
                 <td><a href="{% url 'detalhes_cliente' cliente.id %}">{{ cliente.nome_fantasia }}</a></td>
                 <td>{{ cliente.cnpj }}</td><td>{{ cliente.inativado_em|date:'d/m/Y H:i' }}</td>
                 <td>{{ cliente.motivo_inativacao|truncatewords:18 }}</td>
+                <td style="white-space:nowrap;">
+                    <a class="btn" href="{% url 'editar_cliente' cliente.id %}">Editar</a>
+                    <form method="post" action="{% url 'reativar_cliente' cliente.id %}" style="display:inline;">
+                        {% csrf_token %}<button class="btn" type="submit" onclick="return confirm('Reativar este cliente?')">Reativar</button>
+                    </form>
+                </td>
             </tr>{% endfor %}</tbody>
         </table></div>{% else %}<div class="vazio">Nenhum cliente inativo.</div>{% endif %}
     </main>

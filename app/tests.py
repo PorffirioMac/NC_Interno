@@ -451,6 +451,46 @@ class ClientesOrdenacaoTests(TestCase):
         )
 
 
+    def test_cliente_inativo_pode_ser_editado_e_reativado(self):
+        cliente = self.criar_cliente('00123', 'Cadastro incorreto')
+        cliente.ativo = False
+        cliente.motivo_inativacao = 'Cadastro feito por engano'
+        cliente.save()
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(reverse('editar_cliente', args=[cliente.id]), {
+            'codigo': '00999',
+            'nome_fantasia': 'Cliente corrigido',
+            'razao_social': 'Cliente Corrigido LTDA',
+            'cnpj': '00.000.000/0001-00',
+            'proprietario': 'Responsável',
+            'telefone': '(11) 99999-9999',
+            'observacoes': 'Dados conferidos.',
+        })
+
+        self.assertRedirects(resposta, reverse('detalhes_cliente', args=[cliente.id]))
+        cliente.refresh_from_db()
+        self.assertEqual(cliente.codigo, '00999')
+        self.assertFalse(cliente.ativo)
+
+        resposta = self.client.post(reverse('reativar_cliente', args=[cliente.id]))
+        self.assertRedirects(resposta, reverse('detalhes_cliente', args=[cliente.id]))
+        cliente.refresh_from_db()
+        self.assertTrue(cliente.ativo)
+        self.assertEqual(cliente.motivo_inativacao, '')
+
+    def test_lista_de_inativos_exibe_edicao_e_reativacao(self):
+        cliente = self.criar_cliente('00124', 'Cliente inativo')
+        cliente.ativo = False
+        cliente.save()
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(reverse('clientes_inativos'))
+
+        self.assertContains(resposta, reverse('editar_cliente', args=[cliente.id]))
+        self.assertContains(resposta, reverse('reativar_cliente', args=[cliente.id]))
+
+
 class FinanceiroTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user('financeiro', password='senha')
@@ -733,6 +773,28 @@ class AtribuicaoNaCriacaoTests(TestCase):
 
         self.assertEqual(resposta.status_code, 404)
         self.assertFalse(Task.objects.filter(titulo='Tarefa criada por operadora').exists())
+
+    def test_busca_de_cliente_aceita_nome_parcial_unico(self):
+        cliente = Cliente.objects.create(
+            codigo='12345',
+            nome_fantasia='Restaurante Sabor da Vila',
+            razao_social='Sabor da Vila Alimentação Ltda.',
+            cnpj='00.000.000/0001-00',
+            proprietario='Responsável',
+            telefone='11999999999',
+        )
+        formulario = self.client.get(reverse('criar_tarefa'))
+        self.assertContains(formulario, 'list="listaClientes"')
+        self.assertContains(formulario, cliente.nome_fantasia)
+
+        resposta = self.client.post(
+            reverse('criar_tarefa'),
+            self.dados_ticket(cliente_busca='Sabor da Vila'),
+        )
+
+        self.assertRedirects(resposta, reverse('tarefas'))
+        tarefa = Task.objects.get(titulo='Tarefa criada por operadora')
+        self.assertEqual(tarefa.cliente, cliente)
 
 
 class ModuloTicketTests(TestCase):
@@ -1600,6 +1662,30 @@ class AreaGabrielTests(TestCase):
         self.assertContains(resposta, ticket_gabriel.titulo)
         self.assertNotContains(resposta, 'Ticket técnico de outro usuário')
         self.assertNotContains(resposta, 'Tarefa comercial do Gabriel')
+
+    def test_coluna_netcamp_tambem_possui_checklist_simples(self):
+        self.client.force_login(self.gabriel)
+        sessao = self.client.session
+        sessao['area_gabriel_pin_ate'] = timezone.now().timestamp() + 7200
+        sessao.save()
+
+        resposta = self.client.post(reverse('area_gabriel'), {
+            'criar_tarefa_pessoal': '1',
+            'titulo': 'Conferir equipamento da NetCamp',
+            'area': 'netcamp',
+            'prioridade': 'alta',
+            'data_conclusao': date.today().isoformat(),
+        })
+
+        self.assertRedirects(resposta, reverse('area_gabriel'))
+        tarefa = TarefaPessoal.objects.get(titulo='Conferir equipamento da NetCamp')
+        self.assertEqual(tarefa.area, 'netcamp')
+        pagina = self.client.get(reverse('area_gabriel'))
+        self.assertIn(tarefa, pagina.context['tarefas_netcamp'])
+        self.assertContains(pagina, 'Tarefas rápidas NetCamp')
+
+        painel = self.client.get(reverse('dashboard'))
+        self.assertContains(painel, tarefa.titulo)
 
     def test_lembrete_vencido_aparece_no_popup_e_pode_ser_concluido(self):
         lembrete = TarefaPessoal.objects.create(

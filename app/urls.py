@@ -39,6 +39,7 @@ urlpatterns = [
     path('rotina/<int:rotina_id>/concluir/', views.concluir_rotina, name='concluir_rotina'),
     path('clientes/', views.clientes, name='clientes'),
     path('cliente/criar/', views.criar_cliente, name='criar_cliente'),
+    path('cliente/<int:cliente_id>/editar/', views.editar_cliente, name='editar_cliente'),
     path('cliente/<int:cliente_id>/', views.detalhes_cliente, name='detalhes_cliente'),
     path('cliente/<int:cliente_id>/inativar/', views.inativar_cliente, name='inativar_cliente'),
     path('cliente/<int:cliente_id>/reativar/', views.reativar_cliente, name='reativar_cliente'),

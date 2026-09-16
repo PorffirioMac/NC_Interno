@@ -47,7 +47,10 @@
         {% if messages %}{% for msg in messages %}<div class="alerta {{ msg.tags }}">{{ msg }}</div>{% endfor %}{% endif %}
         <div class="acoes">
             <a class="voltar" href="{% url 'clientes' %}">← Voltar para Clientes</a>
-            <a class="btn" href="{% url 'tarefas' %}?view=lista&amp;filtro=todas&amp;cliente={{ cliente.id }}">Ver tickets</a>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                <a class="btn" href="{% url 'editar_cliente' cliente.id %}">Editar cadastro</a>
+                <a class="btn" href="{% url 'tarefas' %}?view=lista&amp;filtro=todas&amp;cliente={{ cliente.id }}">Ver tickets</a>
+            </div>
         </div>
         <article class="card">
             <div class="cabecalho"><div><h1>{{ cliente.nome_fantasia }}</h1><p>{{ cliente.razao_social }}</p></div><span class="id">ID {{ cliente.codigo|default:'Não informada' }}</span></div>
