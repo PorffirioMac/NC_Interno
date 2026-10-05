@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %} - Meu Sistema</title>
+    <title>{% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %} - NC Interno</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
@@ -23,6 +23,17 @@
         .btn:hover { background: #1557b0; }
         .voltar { color: #1a73e8; text-decoration: none; display: inline-block; margin-bottom: 16px; }
         .btn { grid-column: 1 / -1; margin-top: 4px; }
+        .cliente-seletor { position: relative; }
+        .cliente-busca-wrap { position: relative; }
+        .cliente-busca-wrap input { padding-right: 42px; }
+        .cliente-abrir { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 40px; border: 0; border-left: 1px solid var(--border, #ddd); border-radius: 0 7px 7px 0; background: transparent; color: var(--text-muted, #555); cursor: pointer; font-size: 15px; }
+        .cliente-opcoes { position: absolute; z-index: 30; top: calc(100% + 5px); left: 0; right: 0; display: none; max-height: 280px; overflow-y: auto; padding: 6px; border: 1px solid var(--border, #ccd5e2); border-radius: 9px; background: var(--surface-strong, white); box-shadow: 0 10px 28px rgba(0,0,0,.18); }
+        .cliente-opcoes.aberta { display: block; }
+        .cliente-opcao { display: block; width: 100%; padding: 10px 11px; border: 0; border-radius: 6px; background: transparent; color: var(--text, #222); text-align: left; cursor: pointer; }
+        .cliente-opcao:hover, .cliente-opcao.ativa { background: color-mix(in srgb, var(--primary, #1a73e8) 14%, var(--surface-strong, white)); }
+        .cliente-opcao strong, .cliente-opcao small { display: block; }
+        .cliente-opcao small { margin-top: 3px; color: var(--text-muted, #667085); }
+        .cliente-vazio { display: none; padding: 14px 10px; color: var(--text-muted, #667085); text-align: center; }
         @media (max-width: 720px) {
             .container { padding: 0 14px 28px; margin-top: 22px; }
             .card { padding: 22px 18px; }
@@ -77,14 +88,22 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div>
+                <div class="cliente-seletor">
                     <label>Cliente</label>
-                    <input type="search" name="cliente_busca" list="listaClientes" value="{{ request.POST.cliente_busca }}" placeholder="Digite o ID, nome fantasia ou razão social" autocomplete="off">
-                    <datalist id="listaClientes">
+                    <input type="hidden" name="cliente" id="clienteSelecionado" value="{{ request.POST.cliente }}">
+                    <div class="cliente-busca-wrap">
+                        <input type="search" name="cliente_busca" id="clienteBusca" value="{{ request.POST.cliente_busca }}" placeholder="Clique para escolher ou digite para buscar" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="listaClientes">
+                        <button type="button" class="cliente-abrir" id="abrirClientes" aria-label="Mostrar clientes">▼</button>
+                    </div>
+                    <div class="cliente-opcoes" id="listaClientes" role="listbox">
                         {% for cliente in clientes %}
-                        <option value="{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}">{{ cliente.razao_social }}</option>
+                        <button type="button" class="cliente-opcao" role="option" data-id="{{ cliente.id }}" data-valor="{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}" data-busca="{{ cliente.codigo }} {{ cliente.nome_fantasia }} {{ cliente.razao_social }}">
+                            <strong>{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }}</strong>
+                            <small>{{ cliente.razao_social }}</small>
+                        </button>
                         {% endfor %}
-                    </datalist>
+                        <div class="cliente-vazio" id="clienteVazio">Nenhum cliente encontrado.</div>
+                    </div>
                 </div>
                 <div>
                     <label>Prazo de conclusão</label>
@@ -112,5 +131,79 @@
             </form>
         </div>
     </div>
+    <script>
+        (function () {
+            const seletor = document.querySelector('.cliente-seletor');
+            const busca = document.getElementById('clienteBusca');
+            const selecionado = document.getElementById('clienteSelecionado');
+            const lista = document.getElementById('listaClientes');
+            const abrir = document.getElementById('abrirClientes');
+            const vazio = document.getElementById('clienteVazio');
+            const opcoes = Array.from(lista.querySelectorAll('.cliente-opcao'));
+            let indiceAtivo = -1;
+
+            function normalizar(texto) {
+                return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            }
+            function opcoesVisiveis() {
+                return opcoes.filter(opcao => !opcao.hidden);
+            }
+            function marcarAtiva(indice) {
+                const visiveis = opcoesVisiveis();
+                opcoes.forEach(opcao => opcao.classList.remove('ativa'));
+                if (!visiveis.length || indice < 0) { indiceAtivo = -1; return; }
+                indiceAtivo = Math.max(0, Math.min(indice, visiveis.length - 1));
+                visiveis[indiceAtivo].classList.add('ativa');
+                visiveis[indiceAtivo].scrollIntoView({ block: 'nearest' });
+            }
+            function filtrar() {
+                const termo = normalizar(busca.value);
+                let quantidade = 0;
+                opcoes.forEach(function (opcao) {
+                    const corresponde = !termo || normalizar(opcao.dataset.busca).includes(termo);
+                    opcao.hidden = !corresponde;
+                    if (corresponde) quantidade += 1;
+                });
+                vazio.style.display = quantidade ? 'none' : 'block';
+                indiceAtivo = -1;
+            }
+            function mostrar() {
+                filtrar();
+                lista.classList.add('aberta');
+                busca.setAttribute('aria-expanded', 'true');
+            }
+            function esconder() {
+                lista.classList.remove('aberta');
+                busca.setAttribute('aria-expanded', 'false');
+                marcarAtiva(-1);
+            }
+            function escolher(opcao) {
+                busca.value = opcao.dataset.valor;
+                selecionado.value = opcao.dataset.id;
+                esconder();
+                busca.focus();
+            }
+
+            busca.addEventListener('focus', mostrar);
+            busca.addEventListener('click', mostrar);
+            busca.addEventListener('input', function () {
+                selecionado.value = '';
+                mostrar();
+            });
+            abrir.addEventListener('click', function () {
+                busca.focus();
+                mostrar();
+            });
+            opcoes.forEach(opcao => opcao.addEventListener('click', () => escolher(opcao)));
+            busca.addEventListener('keydown', function (evento) {
+                const visiveis = opcoesVisiveis();
+                if (evento.key === 'ArrowDown') { evento.preventDefault(); mostrar(); marcarAtiva(indiceAtivo + 1); }
+                else if (evento.key === 'ArrowUp') { evento.preventDefault(); mostrar(); marcarAtiva(indiceAtivo <= 0 ? visiveis.length - 1 : indiceAtivo - 1); }
+                else if (evento.key === 'Enter' && indiceAtivo >= 0) { evento.preventDefault(); escolher(visiveis[indiceAtivo]); }
+                else if (evento.key === 'Escape') esconder();
+            });
+            document.addEventListener('click', evento => { if (!seletor.contains(evento.target)) esconder(); });
+        })();
+    </script>
 </body>
 </html>

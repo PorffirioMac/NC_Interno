@@ -691,14 +691,24 @@ html[data-theme="dark"] .attachment-remove { color: #ffaaa5; }
 }
 
 .notification-content {
-    overflow: hidden;
+    max-height: min(760px, calc(100vh - 104px));
+    overflow-x: hidden;
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) var(--surface-muted);
     border: 1px solid var(--border);
     border-radius: 18px;
     background: var(--surface-strong);
     box-shadow: 0 18px 48px rgba(7, 12, 55, .24);
 }
+.notification-content::-webkit-scrollbar { width: 10px; }
+.notification-content::-webkit-scrollbar-track { background: var(--surface-muted); }
+.notification-content::-webkit-scrollbar-thumb { background: var(--primary); border: 2px solid var(--surface-muted); border-radius: 999px; }
 
 .notification-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -875,7 +885,7 @@ html[data-theme="dark"] .attachment-remove { color: #ffaaa5; }
 @media (max-width: 700px) {
     .notification-panel { top: 74px; right: 10px; width: calc(100vw - 20px); }
     .notification-panel.is-minimized { right: 10px; bottom: 78px; width: 142px; }
-    .notification-content { max-height: calc(100vh - 90px); overflow-y: auto; }
+    .notification-content { max-height: calc(100vh - 90px); }
 }
 
 /* Caixa de entrada */

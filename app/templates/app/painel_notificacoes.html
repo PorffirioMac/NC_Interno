@@ -1,4 +1,16 @@
 {% if request.user.is_authenticated %}
+<style>
+    #notificationContent {
+        max-height: calc(100vh - 104px) !important;
+        overflow-x: hidden !important;
+        overflow-y: scroll !important;
+        scrollbar-width: auto;
+        scrollbar-color: var(--primary) var(--surface-muted);
+    }
+    #notificationContent::-webkit-scrollbar { width: 12px; }
+    #notificationContent::-webkit-scrollbar-track { background: var(--surface-muted); }
+    #notificationContent::-webkit-scrollbar-thumb { background: var(--primary); border: 3px solid var(--surface-muted); border-radius: 999px; }
+</style>
 <aside class="notification-panel" id="notificationPanel" aria-label="Central de notificações"
        data-user-id="{{ request.user.id }}"
        data-unread-count="{{ painel_total_novas }}"

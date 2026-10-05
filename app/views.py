@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from calendar import monthrange
 from pathlib import Path
 from django.shortcuts import render, get_object_or_404, redirect
@@ -11,6 +12,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.db.models import Case, Count, F, IntegerField, Max, Q, Value, When
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -1197,36 +1199,22 @@ def tarefas(request):
     responsavel_filtro = request.GET.get('responsavel', '').strip()
     status_filtros = dict(Task.STATUS_CHOICES)
     hoje = date.today()
-    if request.user.is_superuser:
-        if filtro in status_filtros:
-            tarefas = Task.objects.filter(encerrada=False, status=filtro).order_by('-atualizado_em')
-        elif filtro == 'minhas':
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user).order_by('-atualizado_em')
-        elif filtro == 'ativas':
-            tarefas = Task.objects.filter(encerrada=False, prazo__gt=hoje).order_by('-atualizado_em')
-        elif filtro == 'hoje':
-            tarefas = Task.objects.filter(encerrada=False, prazo=hoje).order_by('-atualizado_em')
-        elif filtro == 'atrasadas':
-            tarefas = Task.objects.filter(encerrada=False, prazo__lt=hoje).order_by('-atualizado_em')
-        else:
-            tarefas = Task.objects.filter(encerrada=False).order_by('-atualizado_em')
-    else:
-        if filtro in status_filtros:
-            tarefas = Task.objects.filter(
-                encerrada=False,
-                responsavel=request.user,
-                status=filtro,
-            ).order_by('-atualizado_em')
-        elif filtro == 'minhas':
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user).order_by('-atualizado_em')
-        elif filtro == 'ativas':
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user, prazo__gt=hoje).order_by('-atualizado_em')
-        elif filtro == 'hoje':
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user, prazo=hoje).order_by('-atualizado_em')
-        elif filtro == 'atrasadas':
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user, prazo__lt=hoje).order_by('-atualizado_em')
-        else:
-            tarefas = Task.objects.filter(encerrada=False, responsavel=request.user).order_by('-atualizado_em')
+    tarefas = Task.objects.filter(encerrada=False)
+    if not request.user.is_superuser:
+        tarefas = tarefas.filter(
+            Q(responsavel=request.user) | Q(participantes=request.user)
+        )
+    if filtro in status_filtros:
+        tarefas = tarefas.filter(status=filtro)
+    elif filtro == 'minhas':
+        tarefas = tarefas.filter(responsavel=request.user)
+    elif filtro == 'ativas':
+        tarefas = tarefas.filter(prazo__gt=hoje)
+    elif filtro == 'hoje':
+        tarefas = tarefas.filter(prazo=hoje)
+    elif filtro == 'atrasadas':
+        tarefas = tarefas.filter(prazo__lt=hoje)
+    tarefas = tarefas.order_by('-atualizado_em').distinct()
     tarefas = tarefas.filter(area='tickets')
     selected_responsavel_id = None
     if request.user.is_superuser and responsavel_filtro.isdigit() and User.objects.filter(
@@ -1281,7 +1269,9 @@ def tarefas(request):
 def comercial(request):
     tarefas = Task.objects.filter(encerrada=False, area='comercial')
     if not request.user.is_superuser:
-        tarefas = tarefas.filter(responsavel=request.user)
+        tarefas = tarefas.filter(
+            Q(responsavel=request.user) | Q(participantes=request.user)
+        ).distinct()
 
     fase_filtro = request.GET.get('fase', '')
     if fase_filtro in dict(Task.FASES_COMERCIAL):
@@ -1328,7 +1318,6 @@ def mover_tarefa(request, tarefa_id):
 
 
 @login_required(login_url='/login/')
-@require_POST
 def gerar_ticket_implantacao(request, tarefa_id):
     permitidas = Task.objects.filter(id=tarefa_id, area='comercial', encerrada=False)
     if not request.user.is_superuser:
@@ -1339,22 +1328,107 @@ def gerar_ticket_implantacao(request, tarefa_id):
         messages.info(request, 'Este ticket comercial já possui um ticket de implantação.')
         return redirect('detalhes_tarefa', tarefa_id=comercial.ticket_implantacao.id)
 
-    implantacao = Task.objects.create(
-        titulo=comercial.titulo,
-        descricao=comercial.descricao,
-        modulo=comercial.modulo,
-        area='tickets',
-        fase='implantacao',
-        status='pendente_netcamp',
-        prioridade=comercial.prioridade,
-        responsavel=comercial.responsavel,
-        cliente=comercial.cliente,
-        prazo=comercial.prazo,
-        origem_comercial=comercial,
-    )
-    notificar_atribuicao(implantacao, implantacao.responsavel, request.user)
+    usuarios = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    clientes = Cliente.objects.filter(ativo=True).order_by('codigo', 'nome_fantasia')
+    cliente_form = ClienteForm(prefix='cliente')
+    contexto = {
+        'comercial': comercial,
+        'usuarios': usuarios,
+        'clientes': clientes,
+        'cliente_form': cliente_form,
+    }
+    if request.method != 'POST':
+        return render(request, 'app/disparo_novo_cliente.html', contexto)
 
-    checklist_implantacao = [
+    def valor_decimal(nome, obrigatorio=False):
+        texto = request.POST.get(nome, '').strip().replace('R$', '').replace(' ', '')
+        if not texto:
+            if obrigatorio:
+                raise ValueError
+            return None
+        if ',' in texto:
+            texto = texto.replace('.', '').replace(',', '.')
+        valor = Decimal(texto)
+        if valor < 0 or (obrigatorio and valor == 0):
+            raise ValueError
+        return valor
+
+    novo_cliente = request.POST.get('novo_cliente') == '1'
+    cliente = None
+    if novo_cliente:
+        cliente_form = ClienteForm(request.POST, prefix='cliente')
+        contexto['cliente_form'] = cliente_form
+        if cliente_form.is_valid():
+            cliente = cliente_form.save(commit=False)
+        else:
+            messages.error(request, 'Confira os dados do novo cliente.')
+            return render(request, 'app/disparo_novo_cliente.html', contexto)
+    else:
+        cliente_id = request.POST.get('cliente_id')
+        cliente = Cliente.objects.filter(id=cliente_id, ativo=True).first()
+
+    try:
+        responsavel_tecnico = usuarios.get(id=request.POST.get('responsavel_tecnico'))
+        responsavel_cobranca = usuarios.get(id=request.POST.get('responsavel_cobranca'))
+        responsavel_fiscal = usuarios.get(id=request.POST.get('responsavel_fiscal'))
+        mensalidade = valor_decimal('valor_mensalidade', obrigatorio=True)
+        implantacao_valor = valor_decimal('valor_implantacao')
+        primeira_cobranca = date.fromisoformat(request.POST.get('data_primeira_cobranca', ''))
+        previsao_implantacao = date.fromisoformat(request.POST.get('previsao_implantacao', ''))
+        if not cliente:
+            raise ValueError
+    except (ValueError, InvalidOperation, User.DoesNotExist):
+        messages.error(request, 'Preencha todos os campos obrigatórios com valores válidos.')
+        return render(request, 'app/disparo_novo_cliente.html', contexto)
+
+    detalhes = request.POST.get('detalhes_implantacao', '').strip()
+    with transaction.atomic():
+        if novo_cliente:
+            cliente.save()
+        implantacao = Task.objects.create(
+            titulo=comercial.titulo,
+            descricao=detalhes or comercial.descricao,
+            modulo=comercial.modulo,
+            area='tickets',
+            fase='implantacao',
+            status='pendente_netcamp',
+            prioridade=comercial.prioridade,
+            responsavel=responsavel_tecnico,
+            cliente=cliente,
+            prazo=previsao_implantacao,
+            origem_comercial=comercial,
+            origem_disparo=comercial,
+            tipo_disparo='implantacao',
+        )
+        cobranca = Task.objects.create(
+            titulo=f'Cobrança inicial — {cliente.nome_fantasia}',
+            descricao=(
+                f'Cobrança por boleto.\nMensalidade recorrente: R$ {mensalidade:.2f}.\n'
+                + (f'Valor de implantação: R$ {implantacao_valor:.2f}.\n' if implantacao_valor is not None else 'Sem cobrança de implantação.\n')
+                + f'Primeira cobrança: {primeira_cobranca.strftime("%d/%m/%Y")}.'
+            ),
+            area='comercial', fase='novas_cobrancas', status='pendente_netcamp',
+            prioridade=comercial.prioridade, responsavel=responsavel_cobranca,
+            cliente=cliente, prazo=primeira_cobranca, origem_disparo=comercial,
+            tipo_disparo='cobranca', valor_mensalidade=mensalidade,
+            valor_implantacao=implantacao_valor,
+            data_primeira_cobranca=primeira_cobranca,
+        )
+        planilha = Task.objects.create(
+            titulo=f'Planilha Fiscal — {cliente.nome_fantasia}',
+            descricao='Enviar a planilha fiscal em branco ao cliente e acompanhar o preenchimento pelo contador até a configuração no PDV.',
+            area='comercial', fase='planilha_fiscal', status='pendente_netcamp',
+            prioridade=comercial.prioridade, responsavel=responsavel_fiscal,
+            cliente=cliente, prazo=previsao_implantacao, origem_disparo=comercial,
+            tipo_disparo='planilha_fiscal',
+        )
+        vendedor = comercial.responsavel
+        for tarefa_gerada in (implantacao, cobranca, planilha):
+            if vendedor and vendedor != tarefa_gerada.responsavel:
+                tarefa_gerada.participantes.add(vendedor)
+            notificar_atribuicao(tarefa_gerada, tarefa_gerada.responsavel, request.user)
+
+        checklist_implantacao = [
         'SQL/Concentrador/PDV/Terminais/SAT',
         'Configuração de Impressoras e fixação de IP das mesmas',
         'Checar se possui demais licenças e se possuir, instalar (E-commerce, Xbot, Marketing, QR Code Mesa)',
@@ -1365,46 +1439,46 @@ def gerar_ticket_implantacao(request, tarefa_id):
         'Criar Usuário NetCamp 999 com senha 753951',
         'Entregar manual de procedimentos básicos do sistema',
         'Treinamento básico conforme itens do mesmo manual',
-        'Enviar Planilha Fiscal para Contador preencher',
-        'Orientar cliente sobre obrigações e importância da Planilha Fiscal',
-    ]
-    ChecklistItem.objects.bulk_create([
-        ChecklistItem(task=implantacao, descricao=descricao, criado_por=request.user)
-        for descricao in checklist_implantacao
-    ])
+        ]
+        checklist_cobranca = ['Gerar boleto da primeira mensalidade', 'Enviar boleto ao cliente']
+        if implantacao_valor is not None:
+            checklist_cobranca.insert(0, 'Gerar boleto do valor de implantação')
+        checklist_planilha = [
+            'Enviar planilha fiscal em branco ao cliente',
+            'Aguardar preenchimento pelo contador',
+            'Receber e anexar a planilha preenchida',
+            'Inserir e conferir os dados fiscais no PDV',
+        ]
+        for tarefa_checklist, itens in (
+            (implantacao, checklist_implantacao),
+            (cobranca, checklist_cobranca),
+            (planilha, checklist_planilha),
+        ):
+            ChecklistItem.objects.bulk_create([
+                ChecklistItem(task=tarefa_checklist, descricao=descricao, criado_por=request.user)
+                for descricao in itens
+            ])
 
-    for comentario in comercial.comentarios.all():
-        comentario_copiado = Comment.objects.create(
-            task=implantacao,
-            autor=comentario.autor,
-            texto=comentario.texto,
-        )
-        Comment.objects.filter(pk=comentario_copiado.pk).update(
-            criado_em=comentario.criado_em,
-        )
+        for comentario in comercial.comentarios.all():
+            comentario_copiado = Comment.objects.create(
+                task=implantacao, autor=comentario.autor, texto=comentario.texto,
+            )
+            Comment.objects.filter(pk=comentario_copiado.pk).update(criado_em=comentario.criado_em)
 
-    for anexo in comercial.anexos.all():
-        with anexo.arquivo.open('rb') as arquivo_origem:
-            conteudo = ContentFile(arquivo_origem.read())
-        anexo_copiado = AnexoTicket(
-            tarefa=implantacao,
-            nome_original=anexo.nome_original,
-            tamanho=anexo.tamanho,
-            enviado_por=anexo.enviado_por,
-        )
-        anexo_copiado.arquivo.save(
-            anexo.nome_original,
-            conteudo,
-            save=False,
-        )
-        anexo_copiado.save()
-        AnexoTicket.objects.filter(pk=anexo_copiado.pk).update(
-            criado_em=anexo.criado_em,
-        )
+        for anexo in comercial.anexos.all():
+            with anexo.arquivo.open('rb') as arquivo_origem:
+                conteudo = ContentFile(arquivo_origem.read())
+            anexo_copiado = AnexoTicket(
+                tarefa=implantacao, nome_original=anexo.nome_original,
+                tamanho=anexo.tamanho, enviado_por=anexo.enviado_por,
+            )
+            anexo_copiado.arquivo.save(anexo.nome_original, conteudo, save=False)
+            anexo_copiado.save()
+            AnexoTicket.objects.filter(pk=anexo_copiado.pk).update(criado_em=anexo.criado_em)
 
     messages.success(
         request,
-        'Ticket técnico de implantação gerado com comentários e anexos!',
+        'Disparo concluído: implantação, cobrança e Planilha Fiscal foram criadas!',
     )
     return redirect('detalhes_tarefa', tarefa_id=implantacao.id)
 

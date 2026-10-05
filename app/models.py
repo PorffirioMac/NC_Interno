@@ -11,6 +11,10 @@ MODULOS_SISTEMA = [
     ('totem', 'Totem'),
     ('ecommerce', 'E-commerce'),
     ('nfce', 'NFCe'),
+    ('xtag', 'Xtag'),
+    ('concentrador', 'Concentrador'),
+    ('nfe', 'NFe'),
+    ('solicitacao_geral_cliente', 'Solicitação Geral de Cliente'),
     ('outros', 'Outros'),
 ]
 
@@ -155,6 +159,8 @@ class Task(models.Model):
         ('enviar_proposta', 'Enviar proposta'),
         ('aguardando_retorno', 'Aguardando retorno'),
         ('cobrancas_avulsas', 'Cobranças avulsas de clientes'),
+        ('novas_cobrancas', 'Novas Cobranças'),
+        ('planilha_fiscal', 'Planilha Fiscal'),
     ]
 
     FASES = FASES_TICKETS + FASES_COMERCIAL
@@ -216,6 +222,36 @@ class Task(models.Model):
         blank=True,
         related_name='ticket_implantacao',
     )
+    origem_disparo = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tarefas_disparadas',
+    )
+    tipo_disparo = models.CharField(
+        max_length=30,
+        choices=[
+            ('', 'Não se aplica'),
+            ('implantacao', 'Implantação'),
+            ('cobranca', 'Cobrança'),
+            ('planilha_fiscal', 'Planilha Fiscal'),
+        ],
+        blank=True,
+        default='',
+    )
+    participantes = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='tarefas_acompanhadas',
+    )
+    valor_mensalidade = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+    )
+    valor_implantacao = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+    )
+    data_primeira_cobranca = models.DateField(null=True, blank=True)
     prazo = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)

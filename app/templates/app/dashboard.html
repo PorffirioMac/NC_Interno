@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Meu Sistema</title>
+    <title>Dashboard - NC Interno</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,7 +55,7 @@
 </head>
 <body>
     <div class="topo">
-        <h2>📋 NC_Interno</h2>
+        <h2>📋 NC Interno</h2>
         <div class="user-info">
             <span>{{ user.get_full_name|default:user.username }}</span>
             {% if is_admin %}<span class="badge-admin">Admin</span>{% endif %}

@@ -87,7 +87,15 @@
         const toggle = document.getElementById('notificationToggle');
         const close = document.getElementById('notificationClose');
         const header = painel.querySelector('.notification-header');
+        const conteudoPainel = document.getElementById('notificationContent');
         let arrastouToggle = false;
+
+        function ajustarAlturaPainel() {
+            if (!conteudoPainel || painel.classList.contains('is-minimized')) return;
+            const topo = painel.getBoundingClientRect().top;
+            const alturaDisponivel = Math.max(220, window.innerHeight - topo - 8);
+            conteudoPainel.style.maxHeight = alturaDisponivel + 'px';
+        }
 
         function tocarAviso() {
             return new Promise(function (resolve, reject) {
@@ -231,7 +239,10 @@
             painel.classList.toggle('is-minimized', minimizado);
             if (toggle) toggle.setAttribute('aria-expanded', String(!minimizado));
             if (minimizado) aplicarPosicaoMinimizada();
-            else aplicarPosicaoSalva();
+            else {
+                aplicarPosicaoSalva();
+                ajustarAlturaPainel();
+            }
             try {
                 localStorage.setItem(chavePainel, minimizado ? '1' : '0');
             } catch (error) {
@@ -297,6 +308,8 @@
         }
 
         aplicarPosicaoSalva();
+        ajustarAlturaPainel();
+        window.addEventListener('resize', ajustarAlturaPainel);
 
         if (header) {
             header.addEventListener('pointerdown', function (event) {
@@ -311,6 +324,7 @@
                     const top = limitarPosicao(inicioTop + moveEvent.clientY - inicioY);
                     painel.style.top = top + 'px';
                     painel.style.bottom = 'auto';
+                    ajustarAlturaPainel();
                 }
 
                 function finalizar() {

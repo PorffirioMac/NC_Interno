@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disparo de tarefas - NC Interno</title>
+    <style>
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:'Segoe UI',Arial,sans-serif; background:var(--bg,#eef2f7); color:var(--text,#202938); }
+        .topo { padding:16px 32px; color:white; background:linear-gradient(135deg,#1a73e8,#34258f); }
+        .container { width:min(1050px,calc(100% - 30px)); margin:26px auto 50px; }
+        .voltar { display:inline-block; margin-bottom:15px; color:var(--primary,#1a73e8); text-decoration:none; }
+        .card { padding:28px; border:1px solid var(--border,#d8e0ea); border-radius:16px; background:var(--surface-strong,#fff); box-shadow:var(--shadow,0 8px 30px #13213a12); }
+        h1 { margin:0 0 7px; } .intro { margin:0 0 25px; color:var(--text-muted,#667085); }
+        .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 22px; }
+        .wide { grid-column:1/-1; } label { display:block; margin-bottom:6px; font-size:14px; font-weight:700; }
+        input,select,textarea { width:100%; padding:11px 12px; border:1px solid var(--border,#ccd5e2); border-radius:8px; background:var(--surface,#fff); color:var(--text,#202938); font:inherit; }
+        textarea { min-height:120px; resize:vertical; }
+        .new-client { display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px 20px; padding:20px; border:1px solid var(--border,#d8e0ea); border-radius:12px; background:var(--surface-muted,#f5f7fa); }
+        .new-client.show { display:grid; } .new-client p { margin:0; }
+        .choice { display:flex; align-items:center; gap:8px; margin:4px 0 14px; font-weight:600; }
+        .choice input { width:auto; }
+        .summary { padding:16px; border-left:4px solid #6659d8; border-radius:8px; background:var(--primary-soft,#eef4ff); }
+        .summary strong { display:block; margin-bottom:5px; }
+        .errors { margin:5px 0 0; color:#bd2525; font-size:13px; }
+        .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+        .btn { padding:12px 18px; border:0; border-radius:9px; background:#1a73e8; color:white; font-weight:700; text-decoration:none; cursor:pointer; }
+        .btn.secondary { background:var(--surface-muted,#e9eef5); color:var(--text,#273244); }
+        @media(max-width:720px){ .grid,.new-client{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:20px} }
+    </style>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261005-1"><script src="/static/app/theme.js?v=20260910-2"></script>
+</head>
+<body>
+    <header class="topo"><h2>🚀 Disparo de tarefas do novo cliente</h2></header>
+    {% include 'app/base_nav_snippet.html' %}
+    <main class="container">
+        <a class="voltar" href="{% url 'detalhes_tarefa' comercial.id %}">← Voltar ao card comercial</a>
+        <section class="card">
+            <h1>{{ comercial.titulo }}</h1>
+            <p class="intro">Confirme os dados para criar, de uma só vez, a implantação técnica, a nova cobrança e a Planilha Fiscal.</p>
+            {% if messages %}{% for msg in messages %}<p class="errors">{{ msg }}</p>{% endfor %}{% endif %}
+            <form method="post">{% csrf_token %}
+                <div class="grid">
+                    <div class="wide">
+                        <label for="cliente_id">Cliente cadastrado *</label>
+                        <select name="cliente_id" id="cliente_id">
+                            <option value="">Selecione o cliente</option>
+                            {% for cliente in clientes %}<option value="{{ cliente.id }}" {% if request.POST.cliente_id == cliente.id|stringformat:'s' %}selected{% endif %}>{% if cliente.codigo %}{{ cliente.codigo }} · {% endif %}{{ cliente.nome_fantasia }} — {{ cliente.razao_social }}</option>{% endfor %}
+                        </select>
+                        <label class="choice"><input type="checkbox" name="novo_cliente" id="novoCliente" value="1" {% if request.POST.novo_cliente == '1' %}checked{% endif %}> Cadastrar um novo cliente agora</label>
+                    </div>
+                    <div class="new-client wide" id="camposNovoCliente">
+                        {% for field in cliente_form %}<div {% if field.name == 'observacoes' %}class="wide"{% endif %}><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% for error in field.errors %}<p class="errors">{{ error }}</p>{% endfor %}</div>{% endfor %}
+                    </div>
+                    <div><label>Responsável técnico *</label><select name="responsavel_tecnico" required><option value="">Selecione</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}" {% if request.POST.responsavel_tecnico == usuario.id|stringformat:'s' %}selected{% endif %}>{{ usuario.get_full_name|default:usuario.username }}</option>{% endfor %}</select></div>
+                    <div><label>Previsão da implantação *</label><input type="date" name="previsao_implantacao" value="{{ request.POST.previsao_implantacao }}" required></div>
+                    <div><label>Responsável pela cobrança *</label><select name="responsavel_cobranca" required><option value="">Selecione</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}" {% if request.POST.responsavel_cobranca == usuario.id|stringformat:'s' %}selected{% endif %}>{{ usuario.get_full_name|default:usuario.username }}</option>{% endfor %}</select></div>
+                    <div><label>Responsável pela Planilha Fiscal *</label><select name="responsavel_fiscal" required><option value="">Selecione</option>{% for usuario in usuarios %}<option value="{{ usuario.id }}" {% if request.POST.responsavel_fiscal == usuario.id|stringformat:'s' %}selected{% endif %}>{{ usuario.get_full_name|default:usuario.username }}</option>{% endfor %}</select></div>
+                    <div><label>Mensalidade recorrente *</label><input name="valor_mensalidade" value="{{ request.POST.valor_mensalidade }}" inputmode="decimal" placeholder="R$ 0,00" required></div>
+                    <div><label>Valor de implantação (opcional)</label><input name="valor_implantacao" value="{{ request.POST.valor_implantacao }}" inputmode="decimal" placeholder="R$ 0,00"></div>
+                    <div><label>Data da primeira cobrança *</label><input type="date" name="data_primeira_cobranca" value="{{ request.POST.data_primeira_cobranca }}" required></div>
+                    <div><label>Forma de pagamento</label><input value="Boleto" disabled></div>
+                    <div class="wide"><label>Detalhes para a implantação</label><textarea name="detalhes_implantacao" placeholder="Acessos, equipamentos, módulos contratados e demais orientações...">{{ request.POST.detalhes_implantacao|default:comercial.descricao }}</textarea></div>
+                    <div class="summary wide"><strong>Este disparo criará:</strong> 1 ticket técnico de implantação, 1 tarefa em Novas Cobranças e 1 tarefa em Planilha Fiscal. O responsável comercial continuará como participante para acompanhar o processo.</div>
+                </div>
+                <div class="actions"><a class="btn secondary" href="{% url 'detalhes_tarefa' comercial.id %}">Cancelar</a><button class="btn" type="submit">Criar as 3 tarefas</button></div>
+            </form>
+        </section>
+    </main>
+    <script>
+        const novoCliente = document.getElementById('novoCliente');
+        const campos = document.getElementById('camposNovoCliente');
+        const clienteExistente = document.getElementById('cliente_id');
+        function alternarCliente() {
+            campos.classList.toggle('show', novoCliente.checked);
+            clienteExistente.disabled = novoCliente.checked;
+            campos.querySelectorAll('input,textarea,select').forEach(campo => campo.disabled = !novoCliente.checked);
+        }
+        novoCliente.addEventListener('change', alternarCliente); alternarCliente();
+    </script>
+</body>
+</html>

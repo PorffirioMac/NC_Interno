@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ tarefa.titulo }} - Meu Sistema</title>
+    <title>{{ tarefa.titulo }} - NC Interno</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
@@ -101,6 +101,27 @@
             {% endif %}
             <p>{{ tarefa.descricao|linebreaks }}</p>
 
+            {% if tarefa.participantes.exists %}
+            <div class="secao"><strong>👥 Acompanhamento:</strong> {% for participante in tarefa.participantes.all %}{{ participante.get_full_name|default:participante.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+            {% endif %}
+            {% if tarefa.tipo_disparo == 'cobranca' %}
+            <div class="secao">
+                <h3>💳 Dados da cobrança</h3>
+                <p><strong>Mensalidade recorrente:</strong> R$ {{ tarefa.valor_mensalidade|floatformat:2 }}</p>
+                <p><strong>Implantação:</strong> {% if tarefa.valor_implantacao is not None %}R$ {{ tarefa.valor_implantacao|floatformat:2 }}{% else %}Sem cobrança{% endif %}</p>
+                <p><strong>Primeira cobrança:</strong> {{ tarefa.data_primeira_cobranca|date:'d/m/Y' }} · <strong>Forma:</strong> Boleto</p>
+            </div>
+            {% endif %}
+            {% if tarefa.origem_disparo %}
+            <div class="secao"><strong>🔗 Origem:</strong> <a href="{% url 'detalhes_tarefa' tarefa.origem_disparo.id %}">{{ tarefa.origem_disparo.titulo }}</a></div>
+            {% endif %}
+            {% if tarefa.tarefas_disparadas.exists %}
+            <div class="secao">
+                <h3>🔗 Tarefas disparadas</h3>
+                {% for relacionada in tarefa.tarefas_disparadas.all %}<p><a href="{% url 'detalhes_tarefa' relacionada.id %}">{{ relacionada.get_tipo_disparo_display }} — {{ relacionada.titulo }}</a> · {{ relacionada.responsavel.username|default:'Sem responsável' }}</p>{% endfor %}
+            </div>
+            {% endif %}
+
             {% if legacy_field_controls %}
             <div class="secao">
                 <h3>Atualizar Status</h3>
@@ -130,10 +151,7 @@
                     {% if tarefa.ticket_implantacao %}
                     <a href="{% url 'detalhes_tarefa' tarefa.ticket_implantacao.id %}" class="btn" style="background:#6659d8;">🚀 Ver Ticket de Implantação</a>
                     {% else %}
-                    <form method="post" action="{% url 'gerar_ticket_implantacao' tarefa.id %}" style="margin:0;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn" style="background:#6659d8;" onclick="return confirm('Gerar o ticket técnico de implantação?')">🚀 Gerar Ticket de Implantação</button>
-                    </form>
+                    <a href="{% url 'gerar_ticket_implantacao' tarefa.id %}" class="btn" style="background:#6659d8;">🚀 Criar Ticket Técnico/Disparar Tarefas</a>
                     {% endif %}
                 {% endif %}
                 {% else %}

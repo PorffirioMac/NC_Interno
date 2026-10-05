@@ -784,7 +784,8 @@ class AtribuicaoNaCriacaoTests(TestCase):
             telefone='11999999999',
         )
         formulario = self.client.get(reverse('criar_tarefa'))
-        self.assertContains(formulario, 'list="listaClientes"')
+        self.assertContains(formulario, 'id="listaClientes"')
+        self.assertContains(formulario, 'class="cliente-opcao"')
         self.assertContains(formulario, cliente.nome_fantasia)
 
         resposta = self.client.post(
@@ -808,6 +809,13 @@ class ModuloTicketTests(TestCase):
     def test_lista_de_modulos_espelha_erros_conhecidos(self):
         self.assertEqual(Task.MODULOS[1:], ErroConhecido.MODULOS)
         self.assertEqual(Task.MODULOS[0], ('', 'Sem Módulo Definido'))
+        self.assertIn(('xtag', 'Xtag'), Task.MODULOS)
+        self.assertIn(('concentrador', 'Concentrador'), Task.MODULOS)
+        self.assertIn(('nfe', 'NFe'), Task.MODULOS)
+        self.assertIn(
+            ('solicitacao_geral_cliente', 'Solicitação Geral de Cliente'),
+            Task.MODULOS,
+        )
 
     def test_criacao_e_edicao_persistem_modulo(self):
         resposta = self.client.post(reverse('criar_tarefa'), {
@@ -1459,6 +1467,15 @@ class GerarTicketImplantacaoTests(TestCase):
             'comercial_implantacao',
             password='senha',
         )
+        self.tecnico = User.objects.create_user('tecnico_implantacao', password='senha')
+        self.financeiro = User.objects.create_user('financeiro_implantacao', password='senha')
+        self.fiscal = User.objects.create_user('fiscal_implantacao', password='senha')
+        self.cliente = Cliente.objects.create(
+            codigo='54321', nome_fantasia='Cliente da implantação',
+            razao_social='Cliente da Implantação Ltda.',
+            cnpj='00.000.000/0001-00', proprietario='Responsável',
+            telefone='(11) 99999-9999',
+        )
         self.comercial = Task.objects.create(
             titulo='Nova implantação',
             descricao='Dados da venda',
@@ -1489,10 +1506,24 @@ class GerarTicketImplantacaoTests(TestCase):
 
         resposta = self.client.post(
             reverse('gerar_ticket_implantacao', args=[self.comercial.id]),
+            {
+                'cliente_id': self.cliente.id,
+                'responsavel_tecnico': self.tecnico.id,
+                'responsavel_cobranca': self.financeiro.id,
+                'responsavel_fiscal': self.fiscal.id,
+                'valor_mensalidade': '299,90',
+                'valor_implantacao': '500,00',
+                'data_primeira_cobranca': '2026-10-10',
+                'previsao_implantacao': '2026-10-15',
+                'detalhes_implantacao': 'Instalar os módulos contratados.',
+            },
         )
 
         implantacao = Task.objects.get(origem_comercial=self.comercial)
         self.assertEqual(implantacao.modulo, 'nfce')
+        self.assertEqual(implantacao.responsavel, self.tecnico)
+        self.assertEqual(implantacao.cliente, self.cliente)
+        self.assertIn(self.operador, implantacao.participantes.all())
         self.assertRedirects(
             resposta,
             reverse('detalhes_tarefa', args=[implantacao.id]),
@@ -1509,6 +1540,61 @@ class GerarTicketImplantacaoTests(TestCase):
         self.assertNotEqual(anexo_copiado.arquivo.name, anexo.arquivo.name)
         with anexo_copiado.arquivo.open('rb') as arquivo:
             self.assertEqual(arquivo.read(), b'conteudo do contrato')
+
+        cobranca = self.comercial.tarefas_disparadas.get(tipo_disparo='cobranca')
+        self.assertEqual(cobranca.fase, 'novas_cobrancas')
+        self.assertEqual(cobranca.responsavel, self.financeiro)
+        self.assertEqual(cobranca.valor_mensalidade, Decimal('299.90'))
+        self.assertEqual(cobranca.valor_implantacao, Decimal('500.00'))
+        self.assertTrue(cobranca.checklists.filter(descricao__icontains='implantação').exists())
+
+        planilha = self.comercial.tarefas_disparadas.get(tipo_disparo='planilha_fiscal')
+        self.assertEqual(planilha.fase, 'planilha_fiscal')
+        self.assertEqual(planilha.responsavel, self.fiscal)
+        self.assertEqual(planilha.checklists.count(), 4)
+
+    def test_disparo_incompleto_nao_cria_tarefas_parciais(self):
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('gerar_ticket_implantacao', args=[self.comercial.id]),
+            {'cliente_id': self.cliente.id},
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(self.comercial.tarefas_disparadas.exists())
+        self.assertFalse(hasattr(self.comercial, 'ticket_implantacao'))
+
+    def test_disparo_permite_cadastrar_cliente_no_fluxo(self):
+        self.client.force_login(self.operador)
+
+        resposta = self.client.post(
+            reverse('gerar_ticket_implantacao', args=[self.comercial.id]),
+            {
+                'novo_cliente': '1',
+                'cliente-codigo': '98765',
+                'cliente-nome_fantasia': 'Novo cliente disparado',
+                'cliente-razao_social': 'Novo Cliente Disparado Ltda.',
+                'cliente-cnpj': '11.111.111/0001-11',
+                'cliente-proprietario': 'Novo responsável',
+                'cliente-telefone': '(11) 98888-7777',
+                'cliente-observacoes': '',
+                'responsavel_tecnico': self.tecnico.id,
+                'responsavel_cobranca': self.financeiro.id,
+                'responsavel_fiscal': self.fiscal.id,
+                'valor_mensalidade': '150,00',
+                'valor_implantacao': '',
+                'data_primeira_cobranca': '2026-10-20',
+                'previsao_implantacao': '2026-10-22',
+            },
+        )
+
+        novo_cliente = Cliente.objects.get(codigo='98765')
+        implantacao = Task.objects.get(origem_comercial=self.comercial)
+        self.assertRedirects(resposta, reverse('detalhes_tarefa', args=[implantacao.id]))
+        self.assertEqual(implantacao.cliente, novo_cliente)
+        cobranca = self.comercial.tarefas_disparadas.get(tipo_disparo='cobranca')
+        self.assertIsNone(cobranca.valor_implantacao)
 
 
 class AreaGabrielTests(TestCase):
