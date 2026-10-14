@@ -26,6 +26,76 @@
     aplicarTema(temaInicial());
 
     document.addEventListener('DOMContentLoaded', function () {
+        const sidebar = document.querySelector('.app-sidebar');
+        const sidebarToggle = document.querySelector('.sidebar-mobile-toggle');
+        const sidebarDesktopToggle = document.querySelector('.sidebar-desktop-toggle');
+        const sidebarBackdrop = document.querySelector('.sidebar-backdrop');
+        const sidebarPreferenceKey = 'ncinterno-menu-recolhido';
+
+        function definirSidebar(aberta) {
+            document.body.classList.toggle('sidebar-open', aberta);
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', String(aberta));
+                sidebarToggle.setAttribute('aria-label', aberta ? 'Fechar menu' : 'Abrir menu');
+            }
+        }
+
+        if (sidebar && sidebarToggle) {
+            sidebarToggle.addEventListener('click', function () {
+                definirSidebar(!document.body.classList.contains('sidebar-open'));
+            });
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', function () { definirSidebar(false); });
+            }
+            sidebar.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (window.innerWidth <= 900) definirSidebar(false);
+                });
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') definirSidebar(false);
+            });
+            window.addEventListener('resize', function () {
+                if (window.innerWidth > 900) definirSidebar(false);
+            });
+        }
+
+        function definirSidebarDesktop(recolhida, salvar) {
+            document.body.classList.toggle('sidebar-collapsed', recolhida);
+            if (sidebarDesktopToggle) {
+                sidebarDesktopToggle.textContent = recolhida ? '›' : '‹';
+                sidebarDesktopToggle.setAttribute('aria-expanded', String(!recolhida));
+                sidebarDesktopToggle.setAttribute(
+                    'aria-label',
+                    recolhida ? 'Expandir menu' : 'Recolher menu'
+                );
+                sidebarDesktopToggle.title = recolhida ? 'Expandir menu' : 'Recolher menu';
+            }
+            if (salvar) {
+                try {
+                    localStorage.setItem(sidebarPreferenceKey, recolhida ? '1' : '0');
+                } catch (error) {
+                    // Mantém o controle funcional mesmo sem armazenamento local.
+                }
+            }
+        }
+
+        if (sidebar && sidebarDesktopToggle) {
+            let recolhida = false;
+            try {
+                recolhida = localStorage.getItem(sidebarPreferenceKey) === '1';
+            } catch (error) {
+                recolhida = false;
+            }
+            definirSidebarDesktop(recolhida, false);
+            sidebarDesktopToggle.addEventListener('click', function () {
+                definirSidebarDesktop(
+                    !document.body.classList.contains('sidebar-collapsed'),
+                    true
+                );
+            });
+        }
+
         let botao = document.querySelector('.theme-toggle');
         if (!botao) {
             botao = document.createElement('button');
@@ -121,8 +191,8 @@
                     }
                     function iniciar() {
                         const agora = contexto.currentTime + 0.03;
-                        criarNota(659.25, agora, 0.22, 0.68);
-                        criarNota(783.99, agora + 0.15, 0.30, 0.60);
+                        criarNota(659.25, agora, 0.22, 0.78);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.70);
                         window.setTimeout(function () {
                             contexto.close().finally(resolve);
                         }, 650);
@@ -452,7 +522,7 @@
                     ) {
                         secaoDescartavel.remove();
                     }
-                    reduzirBadge(1);
+                    if (botao.dataset.affectsBadge !== 'false') reduzirBadge(1);
                     mostrarAtualizacoesVazias();
                 }).catch(function () {
                     botao.disabled = false;

@@ -21,6 +21,7 @@ urlpatterns = [
     path('tarefa/<int:tarefa_id>/atribuir/', views.atribuir_tarefa, name='atribuir_tarefa'),
     path('tarefa/<int:tarefa_id>/mover/', views.mover_tarefa, name='mover_tarefa'),
     path('tarefa/<int:tarefa_id>/gerar-implantacao/', views.gerar_ticket_implantacao, name='gerar_ticket_implantacao'),
+    path('tarefa/<int:tarefa_id>/criar-relacionada/', views.criar_tarefa_relacionada, name='criar_tarefa_relacionada'),
     path('tarefa/<int:tarefa_id>/', views.detalhes_tarefa, name='detalhes_tarefa'),
     path('tarefa/<int:tarefa_id>/comentario/<int:comentario_id>/editar/', views.editar_comentario_ticket, name='editar_comentario_ticket'),
     path('tarefa/<int:tarefa_id>/comentario/<int:comentario_id>/excluir/', views.excluir_comentario_ticket, name='excluir_comentario_ticket'),

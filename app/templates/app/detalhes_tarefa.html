@@ -47,8 +47,8 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
-    <script src="/static/app/theme.js?v=20260910-2"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
+    <script src="/static/app/theme.js?v=20261013-3"></script>
 </head>
 <body>
     <div class="topo">
@@ -59,7 +59,7 @@
     {% include 'app/base_nav_snippet.html' %}
 
     <div class="container">
-        <a href="{% if tarefa.area == 'comercial' %}{% url 'comercial' %}{% else %}{% url 'tarefas' %}{% endif %}" class="voltar">← Voltar para {% if tarefa.area == 'comercial' %}Comercial{% else %}Tickets{% endif %}</a>
+        {% if tarefa.area == 'relacionada' and tarefa.origem_disparo %}<a href="{% url 'detalhes_tarefa' tarefa.origem_disparo.id %}" class="voltar">← Voltar ao ticket principal</a>{% else %}<a href="{% if tarefa.area == 'comercial' %}{% url 'comercial' %}{% else %}{% url 'tarefas' %}{% endif %}" class="voltar">← Voltar para {% if tarefa.area == 'comercial' %}Comercial{% else %}Tickets{% endif %}</a>{% endif %}
 
         {% if messages %}
         <ul class="mensagens">
@@ -108,8 +108,10 @@
             <div class="secao">
                 <h3>💳 Dados da cobrança</h3>
                 <p><strong>Mensalidade recorrente:</strong> R$ {{ tarefa.valor_mensalidade|floatformat:2 }}</p>
+                {% if tarefa.valor_mensal_anterior is not None %}<p><strong>Valor mensal anterior:</strong> R$ {{ tarefa.valor_mensal_anterior|floatformat:2 }}</p>{% endif %}
                 <p><strong>Implantação:</strong> {% if tarefa.valor_implantacao is not None %}R$ {{ tarefa.valor_implantacao|floatformat:2 }}{% else %}Sem cobrança{% endif %}</p>
                 <p><strong>Primeira cobrança:</strong> {{ tarefa.data_primeira_cobranca|date:'d/m/Y' }} · <strong>Forma:</strong> Boleto</p>
+                {% if tarefa.motivo_alteracao %}<p><strong>Motivo:</strong> {{ tarefa.motivo_alteracao }}</p>{% endif %}
             </div>
             {% endif %}
             {% if tarefa.origem_disparo %}
@@ -117,10 +119,12 @@
             {% endif %}
             {% if tarefa.tarefas_disparadas.exists %}
             <div class="secao">
-                <h3>🔗 Tarefas disparadas</h3>
-                {% for relacionada in tarefa.tarefas_disparadas.all %}<p><a href="{% url 'detalhes_tarefa' relacionada.id %}">{{ relacionada.get_tipo_disparo_display }} — {{ relacionada.titulo }}</a> · {{ relacionada.responsavel.username|default:'Sem responsável' }}</p>{% endfor %}
+                <h3>🔗 Tarefas relacionadas</h3>
+                {% for relacionada in tarefa.tarefas_disparadas.all %}<p>{% if relacionada.encerrada %}✅{% else %}⏳{% endif %} <a href="{% url 'detalhes_tarefa' relacionada.id %}">{{ relacionada.get_tipo_disparo_display }} — {{ relacionada.titulo }}</a> · {{ relacionada.responsavel.username|default:'Sem responsável' }}{% if relacionada.bloqueia_encerramento and not relacionada.encerrada %} · <strong>Bloqueia encerramento</strong>{% endif %}</p>{% endfor %}
             </div>
             {% endif %}
+
+            {% if tarefa.area != 'relacionada' and not tarefa.encerrada %}<div class="secao"><a class="btn" href="{% url 'criar_tarefa_relacionada' tarefa.id %}">+ Criar tarefa relacionada</a></div>{% endif %}
 
             {% if legacy_field_controls %}
             <div class="secao">
@@ -145,7 +149,7 @@
                 {% if not tarefa.encerrada %}
                 <a href="{% url 'encerrar_tarefa' tarefa.id %}" class="btn" style="background: #28a745;"
                    onclick="return confirm('Tem certeza que deseja encerrar este ticket?')">
-                    ✅ Encerrar Ticket
+                    ✅ {% if tarefa.area == 'relacionada' %}Concluir Tarefa{% else %}Encerrar Ticket{% endif %}
                 </a>
                 {% if tarefa.area == 'comercial' %}
                     {% if tarefa.ticket_implantacao %}

@@ -52,11 +52,39 @@
         .expense-actions form { margin: 0; }
         .expense-actions .btn { padding: 7px 10px; font-size: 12px; }
         .status-paused { color: var(--text-muted); font-weight: 700; }
+        .credit-section { margin-bottom: 30px; padding: 22px; }
+        .credit-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 18px; }
+        .credit-heading p { color: var(--text-muted); margin-top: 5px; }
+        .credit-total { flex: 0 0 auto; padding: 12px 16px; border-radius: 11px; background: var(--primary-soft); text-align: right; }
+        .credit-total span { display: block; color: var(--text-muted); font-size: 12px; }
+        .credit-total strong { color: var(--primary) !important; font-size: 21px; }
+        .credit-form { padding: 17px; margin-bottom: 19px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+        .credit-form-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; }
+        .credit-form label { display: block; font-weight: 700; }
+        .credit-form input[type="text"] { width: 100%; padding: 11px 12px; margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+        .credit-use-row { display: grid; grid-template-columns: auto minmax(240px, 1fr) auto; gap: 14px; align-items: end; margin-top: 14px; }
+        .credit-check { display: flex !important; align-items: center; gap: 8px; min-height: 42px; white-space: nowrap; }
+        .credit-check input { width: 18px; height: 18px; }
+        .credit-inline-input { width: 100%; min-width: 125px; padding: 8px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+        .credit-inline-value { min-width: 105px; }
+        .credit-inline-origin { min-width: 230px; }
+        .credit-inline-status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 700; }
+        .credit-inline-status input { width: 17px; height: 17px; }
+        .protest-section { margin: 0 0 30px; padding: 22px; }
+        .protest-form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
+        .protest-form-grid label { display: block; font-weight: 700; }
+        .protest-form-grid input, .protest-form-grid select { width: 100%; padding: 11px 12px; margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+        .status-available, .status-used { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+        .status-available { background: #d9f4e3; color: #176b38; }
+        .status-used { background: var(--surface-muted); color: var(--text-muted); }
         @media (max-width: 900px) {
             .week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .month-calendar { overflow-x: auto; }
             .month-grid { min-width: 780px; }
             .form-grid { grid-template-columns: 1fr; }
+            .credit-form-grid, .credit-use-row { grid-template-columns: 1fr; }
+            .protest-form-grid { grid-template-columns: 1fr; }
+            .credit-heading { align-items: flex-start; flex-direction: column; }
         }
         @media (max-width: 560px) {
             .finance-summary { grid-template-columns: 1fr; }
@@ -65,8 +93,8 @@
             .expense-table { min-width: 720px; }
         }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20260910-2">
-    <script src="/static/app/theme.js?v=20260910-2"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
+    <script src="/static/app/theme.js?v=20261013-3"></script>
 </head>
 <body>
     <header class="topo">
@@ -166,6 +194,121 @@
                 </tbody>
             </table>
         </section>
+
+        <section class="credit-section card-detalhe">
+            <div class="credit-heading">
+                <div>
+                    <h2>Créditos Netcontroll</h2>
+                    <p>Royalties já pagos que podem ser utilizados em novos boletos.</p>
+                </div>
+                <div class="credit-total">
+                    <span>Total disponível</span>
+                    <strong>R$ {{ total_creditos_disponiveis|floatformat:2 }}</strong>
+                </div>
+            </div>
+
+            <form method="post" class="credit-form">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_credito" value="1">
+                <div class="credit-form-grid">
+                    <label>{{ credito_form.valor.label }}{{ credito_form.valor }}{% for error in credito_form.valor.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <label>{{ credito_form.origem.label }}{{ credito_form.origem }}{% for error in credito_form.origem.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                </div>
+                <div class="credit-use-row">
+                    <label class="credit-check">{{ credito_form.utilizado }} {{ credito_form.utilizado.label }}</label>
+                    <label>{{ credito_form.boleto_utilizado.label }}{{ credito_form.boleto_utilizado }}{% for error in credito_form.boleto_utilizado.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <button type="submit" class="btn">Adicionar crédito</button>
+                </div>
+            </form>
+
+            {% for credito in creditos %}
+            <form id="credito-inline-{{ credito.id }}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_credito" value="1">
+                <input type="hidden" name="credito_id" value="{{ credito.id }}">
+            </form>
+            {% endfor %}
+            <div style="overflow-x:auto;">
+                <table class="expense-table">
+                    <thead><tr><th>Valor</th><th>Origem</th><th>Utilizado?</th><th>Boleto utilizado</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        {% for credito in creditos %}
+                        <tr>
+                            <td><input class="credit-inline-input credit-inline-value" form="credito-inline-{{ credito.id }}" type="text" inputmode="decimal" name="valor" value="{{ credito.valor }}" aria-label="Valor do crédito"></td>
+                            <td><input class="credit-inline-input credit-inline-origin" form="credito-inline-{{ credito.id }}" type="text" name="origem" value="{{ credito.origem }}" aria-label="Origem do crédito"></td>
+                            <td><label class="credit-inline-status"><input form="credito-inline-{{ credito.id }}" type="checkbox" name="utilizado" {% if credito.utilizado %}checked{% endif %}> Utilizado</label></td>
+                            <td><input class="credit-inline-input" form="credito-inline-{{ credito.id }}" type="text" name="boleto_utilizado" value="{{ credito.boleto_utilizado }}" placeholder="Informe ao utilizar" aria-label="Boleto utilizado"></td>
+                            <td class="expense-actions">
+                                <button class="btn btn-muted" form="credito-inline-{{ credito.id }}" type="submit">Salvar</button>
+                                <form method="post">{% csrf_token %}<input type="hidden" name="remover_credito" value="1"><input type="hidden" name="credito_id" value="{{ credito.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover este crédito?')">Remover</button></form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5">Nenhum crédito cadastrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="protest-section card-detalhe">
+            <div class="credit-heading">
+                <div>
+                    <h2>Clientes Protestados</h2>
+                    <p>Controle dos boletos protestados e das respectivas baixas.</p>
+                </div>
+            </div>
+
+            <form method="post" class="credit-form">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_protesto" value="1">
+                <div class="protest-form-grid">
+                    <label>{{ protesto_form.cliente.label }}{{ protesto_form.cliente }}{% for error in protesto_form.cliente.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <label>{{ protesto_form.data_boleto.label }}{{ protesto_form.data_boleto }}{% for error in protesto_form.data_boleto.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <label>{{ protesto_form.valor.label }}{{ protesto_form.valor }}{% for error in protesto_form.valor.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                </div>
+                <div class="credit-use-row">
+                    <label class="credit-check">{{ protesto_form.pago }} {{ protesto_form.pago.label }}</label>
+                    <label>{{ protesto_form.data_pagamento.label }}{{ protesto_form.data_pagamento }}{% for error in protesto_form.data_pagamento.errors %}<span class="field-errors">{{ error }}</span>{% endfor %}</label>
+                    <button type="submit" class="btn">Registrar protesto</button>
+                </div>
+            </form>
+
+            {% for protesto in protestos %}
+            <form id="protesto-inline-{{ protesto.id }}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="salvar_protesto" value="1">
+                <input type="hidden" name="protesto_id" value="{{ protesto.id }}">
+            </form>
+            {% endfor %}
+            <div style="overflow-x:auto;">
+                <table class="expense-table">
+                    <thead><tr><th>Cliente</th><th>Data do boleto</th><th>Valor</th><th>Pago?</th><th>Data da baixa</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        {% for protesto in protestos %}
+                        <tr>
+                            <td>
+                                <select class="credit-inline-input credit-inline-origin" form="protesto-inline-{{ protesto.id }}" name="cliente" aria-label="Cliente protestado">
+                                    {% for cliente in clientes_financeiro %}<option value="{{ cliente.id }}" {% if cliente.id == protesto.cliente_id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td><input class="credit-inline-input" form="protesto-inline-{{ protesto.id }}" type="date" name="data_boleto" value="{{ protesto.data_boleto|date:'Y-m-d' }}" aria-label="Data do boleto"></td>
+                            <td><input class="credit-inline-input credit-inline-value" form="protesto-inline-{{ protesto.id }}" type="text" inputmode="decimal" name="valor" value="{{ protesto.valor }}" aria-label="Valor do boleto"></td>
+                            <td><label class="credit-inline-status"><input form="protesto-inline-{{ protesto.id }}" type="checkbox" name="pago" {% if protesto.pago %}checked{% endif %}> Pago</label></td>
+                            <td><input class="credit-inline-input" form="protesto-inline-{{ protesto.id }}" type="date" name="data_pagamento" value="{% if protesto.data_pagamento %}{{ protesto.data_pagamento|date:'Y-m-d' }}{% endif %}" aria-label="Data da baixa"></td>
+                            <td class="expense-actions">
+                                <button class="btn btn-muted" form="protesto-inline-{{ protesto.id }}" type="submit">Salvar</button>
+                                <form method="post">{% csrf_token %}<input type="hidden" name="remover_protesto" value="1"><input type="hidden" name="protesto_id" value="{{ protesto.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover este registro de protesto?')">Remover</button></form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6">Nenhum cliente protestado registrado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 </body>
 </html>

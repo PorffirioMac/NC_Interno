@@ -146,13 +146,11 @@ def painel_notificacoes(context):
             len(prazos) + nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
             + len(tickets_plantao)
-            + len(tarefas_pessoais)
         ),
         'painel_total_novas': (
             nao_lidas + total_comunicacoes
             + len(despesas_hoje) + len(rotinas_pendentes)
             + len(tickets_plantao)
-            + len(tarefas_pessoais)
         ),
         'painel_assinatura_novas': (
             f'{ultima_notificacao_id}:{ultima_comunicacao_id}:'

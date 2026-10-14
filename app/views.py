@@ -18,7 +18,8 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
 from .forms import (
-    ClienteForm, DespesaFinanceiraForm, ErroConhecidoForm,
+    ClienteForm, ClienteProtestadoForm, CreditoMatrizForm, DespesaFinanceiraForm,
+    ErroConhecidoForm,
     ProcedimentoInternoForm, ReleaseForm, RotinaForm, SolicitacaoReleaseForm,
     SugestaoDesenvolvimentoForm,
 )
@@ -26,7 +27,7 @@ from .models import (
     AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
     AcessoAreaGabriel, AnexoTicket, Cliente, ComentarioSolicitacao, ComentarioTarefaPessoal,
     Comunicacao, ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira,
-    DespesaFinanceira, ErroConhecido,
+    ClienteProtestado, CreditoMatriz, DespesaFinanceira, ErroConhecido,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
     SolicitacaoRelease, SugestaoDesenvolvimento, Task, ChecklistItem, Comment,
     Notificacao, TarefaPessoal,
@@ -218,7 +219,6 @@ def status_notificacoes(request):
             + total_despesas
             + len(rotinas_pendentes)
             + resumo_plantao['total']
-            + len(tarefas_pessoais)
         ),
         'assinatura': (
             f"{resumo_notificacoes['ultima'] or 0}:"
@@ -1160,16 +1160,20 @@ def busca_global(request):
     }
     if termo:
         tickets_encontrados = Task.objects.filter(
-            Q(titulo__icontains=termo) | Q(descricao__icontains=termo)
+            Q(titulo__icontains=termo)
+            | Q(descricao__icontains=termo)
+            | Q(cliente__nome_fantasia__icontains=termo)
+            | Q(cliente__razao_social__icontains=termo)
+            | Q(cliente__codigo__icontains=termo)
         )
         if not request.user.is_superuser:
             tickets_encontrados = tickets_encontrados.filter(
-                responsavel=request.user,
+                Q(responsavel=request.user) | Q(participantes=request.user),
             )
         resultados = {
             'tickets': tickets_encontrados.select_related(
                 'cliente', 'responsavel',
-            ).order_by('-atualizado_em')[:30],
+            ).distinct().order_by('-atualizado_em')[:30],
             'clientes': Cliente.objects.filter(
                 Q(nome_fantasia__icontains=termo)
                 | Q(razao_social__icontains=termo)
@@ -1413,6 +1417,7 @@ def gerar_ticket_implantacao(request, tarefa_id):
             tipo_disparo='cobranca', valor_mensalidade=mensalidade,
             valor_implantacao=implantacao_valor,
             data_primeira_cobranca=primeira_cobranca,
+            bloqueia_encerramento=True,
         )
         planilha = Task.objects.create(
             titulo=f'Planilha Fiscal — {cliente.nome_fantasia}',
@@ -1421,6 +1426,7 @@ def gerar_ticket_implantacao(request, tarefa_id):
             prioridade=comercial.prioridade, responsavel=responsavel_fiscal,
             cliente=cliente, prazo=previsao_implantacao, origem_disparo=comercial,
             tipo_disparo='planilha_fiscal',
+            bloqueia_encerramento=True,
         )
         vendedor = comercial.responsavel
         for tarefa_gerada in (implantacao, cobranca, planilha):
@@ -1481,6 +1487,97 @@ def gerar_ticket_implantacao(request, tarefa_id):
         'Disparo concluído: implantação, cobrança e Planilha Fiscal foram criadas!',
     )
     return redirect('detalhes_tarefa', tarefa_id=implantacao.id)
+
+
+@login_required(login_url='/login/')
+def criar_tarefa_relacionada(request, tarefa_id):
+    tarefa_principal = get_object_or_404(Task, id=tarefa_id)
+    pode_criar = (
+        request.user.is_superuser
+        or tarefa_principal.responsavel_id == request.user.id
+        or tarefa_principal.participantes.filter(id=request.user.id).exists()
+    )
+    if not pode_criar:
+        raise PermissionDenied
+
+    usuarios = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    tipos = [
+        escolha for escolha in Task._meta.get_field('tipo_disparo').choices
+        if escolha[0] in ('cobranca', 'planilha_fiscal', 'tarefa_interna', 'retorno_cliente', 'outro')
+    ]
+    prioridades = [('baixa', 'Baixa'), ('media', 'Média'), ('alta', 'Alta'), ('urgente', 'Urgente')]
+    contexto = {
+        'tarefa_principal': tarefa_principal,
+        'usuarios': usuarios,
+        'tipos': tipos,
+        'prioridades': prioridades,
+    }
+    if request.method != 'POST':
+        return render(request, 'app/form_tarefa_relacionada.html', contexto)
+
+    tipo = request.POST.get('tipo', '')
+    titulo = request.POST.get('titulo', '').strip()
+    descricao = request.POST.get('descricao', '').strip()
+    prioridade = request.POST.get('prioridade', 'media')
+    responsavel = usuarios.filter(id=request.POST.get('responsavel')).first()
+    try:
+        prazo = date.fromisoformat(request.POST.get('prazo', ''))
+    except ValueError:
+        prazo = None
+    if tipo not in dict(tipos) or not titulo or not responsavel or not prazo or prioridade not in dict(prioridades):
+        messages.error(request, 'Preencha todos os campos obrigatórios.')
+        return render(request, 'app/form_tarefa_relacionada.html', contexto)
+
+    def decimal_opcional(nome):
+        texto = request.POST.get(nome, '').strip().replace('R$', '').replace(' ', '')
+        if not texto:
+            return None
+        if ',' in texto:
+            texto = texto.replace('.', '').replace(',', '.')
+        valor = Decimal(texto)
+        if valor < 0:
+            raise InvalidOperation
+        return valor
+
+    valor_novo = valor_anterior = valor_adicional = primeira_cobranca = None
+    motivo = ''
+    if tipo == 'cobranca':
+        try:
+            valor_novo = decimal_opcional('valor_mensalidade')
+            valor_anterior = decimal_opcional('valor_mensal_anterior')
+            valor_adicional = decimal_opcional('valor_implantacao')
+            primeira_cobranca = date.fromisoformat(request.POST.get('data_primeira_cobranca', ''))
+            motivo = request.POST.get('motivo_alteracao', '').strip()
+            if valor_novo is None or not motivo:
+                raise ValueError
+        except (ValueError, InvalidOperation):
+            messages.error(request, 'Informe o novo valor mensal, a data da cobrança e o motivo da alteração.')
+            return render(request, 'app/form_tarefa_relacionada.html', contexto)
+
+    relacionada = Task.objects.create(
+        titulo=titulo,
+        descricao=descricao,
+        area='relacionada',
+        fase='tarefas_internas',
+        status='pendente_netcamp',
+        prioridade=prioridade,
+        responsavel=responsavel,
+        cliente=tarefa_principal.cliente,
+        prazo=prazo,
+        origem_disparo=tarefa_principal,
+        tipo_disparo=tipo,
+        bloqueia_encerramento=request.POST.get('bloqueia_encerramento') == '1',
+        valor_mensalidade=valor_novo,
+        valor_mensal_anterior=valor_anterior,
+        valor_implantacao=valor_adicional,
+        data_primeira_cobranca=primeira_cobranca,
+        motivo_alteracao=motivo,
+    )
+    if tarefa_principal.responsavel and tarefa_principal.responsavel != responsavel:
+        relacionada.participantes.add(tarefa_principal.responsavel)
+    notificar_atribuicao(relacionada, responsavel, request.user)
+    messages.success(request, 'Tarefa relacionada criada e atribuída com sucesso!')
+    return redirect('detalhes_tarefa', tarefa_id=tarefa_principal.id)
 
 @login_required(login_url='/login/')
 def atribuir_tarefa(request, tarefa_id):
@@ -1931,6 +2028,11 @@ def _data_vencimento_mensal(despesa, ano, mes):
 @login_required(login_url='/login/')
 @permission_required('app.acessar_financeiro', raise_exception=True)
 def financeiro(request):
+    form = DespesaFinanceiraForm()
+    credito_em_edicao = None
+    credito_form = CreditoMatrizForm()
+    protesto_form = ClienteProtestadoForm()
+
     if request.method == 'POST':
         if 'salvar_despesa' in request.POST:
             form = DespesaFinanceiraForm(request.POST)
@@ -1960,6 +2062,80 @@ def financeiro(request):
             despesa.delete()
             messages.success(request, 'Despesa removida com sucesso!')
             return redirect('financeiro')
+        elif 'salvar_credito' in request.POST:
+            credito_id = request.POST.get('credito_id')
+            credito_em_edicao = (
+                get_object_or_404(CreditoMatriz, id=credito_id)
+                if credito_id else None
+            )
+            credito_form = CreditoMatrizForm(
+                request.POST,
+                instance=credito_em_edicao,
+            )
+            if credito_form.is_valid():
+                credito = credito_form.save(commit=False)
+                if not credito.criado_por_id:
+                    credito.criado_por = request.user
+                credito.save()
+                messages.success(
+                    request,
+                    'Crédito atualizado com sucesso!'
+                    if credito_em_edicao else 'Crédito cadastrado com sucesso!',
+                )
+                return redirect('financeiro')
+            if credito_em_edicao:
+                erros = ' '.join(
+                    erro
+                    for lista_erros in credito_form.errors.values()
+                    for erro in lista_erros
+                )
+                messages.error(request, erros or 'Revise os dados do crédito.')
+                return redirect('financeiro')
+        elif 'remover_credito' in request.POST:
+            credito = get_object_or_404(
+                CreditoMatriz,
+                id=request.POST.get('credito_id'),
+            )
+            credito.delete()
+            messages.success(request, 'Crédito removido com sucesso!')
+            return redirect('financeiro')
+        elif 'salvar_protesto' in request.POST:
+            protesto_id = request.POST.get('protesto_id')
+            protesto_existente = (
+                get_object_or_404(ClienteProtestado, id=protesto_id)
+                if protesto_id else None
+            )
+            protesto_form = ClienteProtestadoForm(
+                request.POST,
+                instance=protesto_existente,
+            )
+            if protesto_form.is_valid():
+                protesto = protesto_form.save(commit=False)
+                if not protesto.criado_por_id:
+                    protesto.criado_por = request.user
+                protesto.save()
+                messages.success(
+                    request,
+                    'Protesto atualizado com sucesso!'
+                    if protesto_existente else 'Cliente protestado registrado com sucesso!',
+                )
+                return redirect('financeiro')
+            if protesto_existente:
+                erros = ' '.join(
+                    erro
+                    for lista_erros in protesto_form.errors.values()
+                    for erro in lista_erros
+                )
+                messages.error(request, erros or 'Revise os dados do protesto.')
+                return redirect('financeiro')
+        elif 'remover_protesto' in request.POST:
+            protesto = get_object_or_404(
+                ClienteProtestado,
+                id=request.POST.get('protesto_id'),
+            )
+            protesto.delete()
+            messages.success(request, 'Registro de protesto removido com sucesso!')
+            return redirect('financeiro')
         else:
             form = DespesaFinanceiraForm()
     else:
@@ -1968,6 +2144,9 @@ def financeiro(request):
     hoje = date.today()
     despesas_ativas = list(DespesaFinanceira.objects.filter(ativa=True))
     despesas = DespesaFinanceira.objects.select_related('criado_por').all()
+    creditos = CreditoMatriz.objects.select_related('criado_por').all()
+    protestos = ClienteProtestado.objects.select_related('cliente', 'criado_por').all()
+    creditos_disponiveis = creditos.filter(utilizado=False)
     semana_inicio = hoje - timedelta(days=hoje.weekday())
     semana_fim = semana_inicio + timedelta(days=6)
 
@@ -2021,6 +2200,14 @@ def financeiro(request):
         'month_name': nomes_meses[hoje.month],
         'current_year': hoje.year,
         'total_mensal': sum(despesa.valor for despesa in despesas_ativas),
+        'credito_form': credito_form,
+        'creditos': creditos,
+        'protesto_form': protesto_form,
+        'protestos': protestos,
+        'clientes_financeiro': Cliente.objects.all().order_by('nome_fantasia'),
+        'total_creditos_disponiveis': sum(
+            credito.valor for credito in creditos_disponiveis
+        ),
     })
 
 
@@ -2111,11 +2298,28 @@ def concluir_rotina(request, rotina_id):
 @login_required(login_url='/login/')
 def encerrar_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
+    pendencias_bloqueadoras = tarefa.tarefas_disparadas.filter(
+        encerrada=False,
+        bloqueia_encerramento=True,
+    )
+    if pendencias_bloqueadoras.exists():
+        nomes = ', '.join(pendencias_bloqueadoras.values_list('titulo', flat=True)[:3])
+        messages.error(
+            request,
+            f'Este ticket ainda possui tarefas relacionadas obrigatórias pendentes: {nomes}.',
+        )
+        return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
     tarefa.encerrada = True
     tarefa.encerrado_em = timezone.now()
     tarefa.save(update_fields=['encerrada', 'encerrado_em', 'atualizado_em'])
     tarefa.notificacoes.filter(lida=False).update(lida=True)
-    messages.success(request, 'Ticket encerrado com sucesso!')
+    messages.success(
+        request,
+        'Tarefa relacionada concluída!' if tarefa.area == 'relacionada'
+        else 'Ticket encerrado com sucesso!',
+    )
+    if tarefa.area == 'relacionada' and tarefa.origem_disparo_id:
+        return redirect('detalhes_tarefa', tarefa_id=tarefa.origem_disparo_id)
     return redirect('tarefas_encerradas')
 
 @login_required(login_url='/login/')

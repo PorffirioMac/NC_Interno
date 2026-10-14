@@ -14,8 +14,9 @@ from django.utils import timezone
 
 from .models import (
     AcessoAreaGabriel, AnexoErroConhecido, AnexoProcedimento, AnexoSugestaoDesenvolvimento,
-    AnexoTicket, Cliente, Comment, ComentarioTarefaPessoal, Comunicacao,
-    ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira, DespesaFinanceira,
+    AnexoTicket, Cliente, ClienteProtestado, Comment, ComentarioTarefaPessoal, Comunicacao,
+    ComunicacaoDestinatario, ConfirmacaoDespesaFinanceira, CreditoMatriz,
+    DespesaFinanceira,
     ErroConhecido, Notificacao,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
     SugestaoDesenvolvimento, Task, TarefaPessoal,
@@ -520,6 +521,99 @@ class FinanceiroTests(TestCase):
         despesa = DespesaFinanceira.objects.get()
         self.assertEqual(despesa.valor, Decimal('1250.50'))
         self.assertEqual(despesa.criado_por, self.usuario)
+
+    def test_usuario_autorizado_cadastra_credito_da_matriz(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_credito': '1',
+            'valor': '475,90',
+            'origem': 'Royalty do cliente cancelado',
+        })
+
+        self.assertRedirects(resposta, reverse('financeiro'))
+        credito = CreditoMatriz.objects.get()
+        self.assertEqual(credito.valor, Decimal('475.90'))
+        self.assertEqual(credito.criado_por, self.usuario)
+        self.assertFalse(credito.utilizado)
+
+    def test_credito_utilizado_exige_identificacao_do_boleto(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_credito': '1',
+            'valor': '100,00',
+            'origem': 'Crédito anterior',
+            'utilizado': 'on',
+            'boleto_utilizado': '',
+        })
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'Informe em qual boleto')
+        self.assertFalse(CreditoMatriz.objects.exists())
+
+    def test_edita_credito_e_registra_boleto_utilizado(self):
+        credito = CreditoMatriz.objects.create(
+            valor=Decimal('200.00'),
+            origem='Cliente antigo',
+            criado_por=self.usuario,
+        )
+        self.client.force_login(self.usuario)
+
+        pagina = self.client.get(reverse('financeiro'))
+        self.assertContains(pagina, f'id="credito-inline-{credito.id}"')
+        self.assertNotContains(pagina, '?editar_credito=')
+
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_credito': '1',
+            'credito_id': credito.id,
+            'valor': '200,00',
+            'origem': 'Cliente antigo',
+            'utilizado': 'on',
+            'boleto_utilizado': 'Boleto 12345',
+        })
+
+        self.assertRedirects(resposta, reverse('financeiro'))
+        credito.refresh_from_db()
+        self.assertTrue(credito.utilizado)
+        self.assertEqual(credito.boleto_utilizado, 'Boleto 12345')
+
+    def test_registra_e_baixa_cliente_protestado_na_propria_tabela(self):
+        cliente = Cliente.objects.create(
+            codigo='98765',
+            nome_fantasia='Cliente Protestado',
+            razao_social='Cliente Protestado Ltda.',
+            cnpj='98.765.432/0001-10',
+            proprietario='Responsável',
+            telefone='11999999999',
+        )
+        self.client.force_login(self.usuario)
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_protesto': '1',
+            'cliente': cliente.id,
+            'data_boleto': '2026-10-10',
+            'valor': '850,00',
+        })
+        self.assertRedirects(resposta, reverse('financeiro'))
+        protesto = ClienteProtestado.objects.get()
+        self.assertFalse(protesto.pago)
+
+        pagina = self.client.get(reverse('financeiro'))
+        self.assertContains(pagina, f'id="protesto-inline-{protesto.id}"')
+
+        resposta = self.client.post(reverse('financeiro'), {
+            'salvar_protesto': '1',
+            'protesto_id': protesto.id,
+            'cliente': cliente.id,
+            'data_boleto': '2026-10-10',
+            'valor': '850,00',
+            'pago': 'on',
+            'data_pagamento': '2026-10-14',
+        })
+        self.assertRedirects(resposta, reverse('financeiro'))
+        protesto.refresh_from_db()
+        self.assertTrue(protesto.pago)
+        self.assertEqual(protesto.data_pagamento, date(2026, 10, 14))
 
     def test_despesa_do_dia_aparece_no_popup_apenas_para_autorizado(self):
         despesa = DespesaFinanceira.objects.create(
@@ -1597,6 +1691,67 @@ class GerarTicketImplantacaoTests(TestCase):
         self.assertIsNone(cobranca.valor_implantacao)
 
 
+class TarefasRelacionadasTests(TestCase):
+    def setUp(self):
+        self.tecnico = User.objects.create_user('tecnico_relacionada', password='senha')
+        self.financeiro = User.objects.create_user('financeiro_relacionada', password='senha')
+        self.cliente = Cliente.objects.create(
+            codigo='11223', nome_fantasia='Cliente Licenças',
+            razao_social='Cliente Licenças Ltda.', cnpj='22.222.222/0001-22',
+            proprietario='Responsável', telefone='11999999999',
+        )
+        self.ticket = Task.objects.create(
+            titulo='Alteração de licenças', area='tickets',
+            fase='tickets_abertos', responsavel=self.tecnico,
+            cliente=self.cliente, prazo=date.today(),
+        )
+        self.client.force_login(self.tecnico)
+
+    def test_cobranca_relacionada_bloqueia_ticket_e_aparece_no_popup(self):
+        resposta = self.client.post(
+            reverse('criar_tarefa_relacionada', args=[self.ticket.id]),
+            {
+                'tipo': 'cobranca',
+                'titulo': 'Atualizar boleto das novas licenças',
+                'responsavel': self.financeiro.id,
+                'prazo': date.today().isoformat(),
+                'prioridade': 'alta',
+                'descricao': 'Cobrar as licenças adicionadas.',
+                'valor_mensalidade': '450,00',
+                'valor_mensal_anterior': '300,00',
+                'valor_implantacao': '100,00',
+                'data_primeira_cobranca': date.today().isoformat(),
+                'motivo_alteracao': 'Aquisição de novas licenças',
+                'bloqueia_encerramento': '1',
+            },
+        )
+
+        self.assertRedirects(resposta, reverse('detalhes_tarefa', args=[self.ticket.id]))
+        cobranca = self.ticket.tarefas_disparadas.get(tipo_disparo='cobranca')
+        self.assertEqual(cobranca.area, 'relacionada')
+        self.assertEqual(cobranca.responsavel, self.financeiro)
+        self.assertEqual(cobranca.valor_mensalidade, Decimal('450.00'))
+        self.assertTrue(cobranca.bloqueia_encerramento)
+
+        bloqueio = self.client.get(reverse('encerrar_tarefa', args=[self.ticket.id]))
+        self.assertRedirects(bloqueio, reverse('detalhes_tarefa', args=[self.ticket.id]))
+        self.ticket.refresh_from_db()
+        self.assertFalse(self.ticket.encerrada)
+
+        self.client.force_login(self.financeiro)
+        painel = self.client.get(reverse('dashboard'))
+        self.assertContains(painel, cobranca.titulo)
+        conclusao = self.client.get(reverse('encerrar_tarefa', args=[cobranca.id]))
+        self.assertRedirects(conclusao, reverse('detalhes_tarefa', args=[self.ticket.id]))
+        cobranca.refresh_from_db()
+        self.assertTrue(cobranca.encerrada)
+
+        self.client.force_login(self.tecnico)
+        self.client.get(reverse('encerrar_tarefa', args=[self.ticket.id]))
+        self.ticket.refresh_from_db()
+        self.assertTrue(self.ticket.encerrada)
+
+
 class AreaGabrielTests(TestCase):
     def setUp(self):
         self.gabriel = User.objects.create_superuser(
@@ -1789,6 +1944,11 @@ class AreaGabrielTests(TestCase):
         painel = self.client.get(reverse('dashboard'))
         self.assertContains(painel, lembrete.titulo)
         self.assertNotContains(painel, futuro.titulo)
+        self.assertNotContains(painel, 'id="notificationBadge"')
+        self.assertEqual(
+            self.client.get(reverse('status_notificacoes')).json()['total'],
+            0,
+        )
 
         resposta = self.client.post(
             reverse('concluir_tarefa_pessoal', args=[lembrete.id]),
@@ -1897,6 +2057,28 @@ class BuscaGlobalTests(TestCase):
         )
 
         self.assertNotContains(resposta, ticket_alheio.titulo)
+
+    def test_ticket_pode_ser_encontrado_pelo_cliente_vinculado(self):
+        cliente = Cliente.objects.create(
+            codigo='67890',
+            nome_fantasia='MADAME FENERICH',
+            razao_social='Madame Fenerich Comércio Ltda.',
+            cnpj='11.111.111/0001-11',
+            proprietario='Responsável',
+            telefone='11988887777',
+        )
+        ticket = Task.objects.create(
+            titulo='Alteração de Pacote',
+            descricao='Solicitação sem o nome do cliente no texto.',
+            responsavel=self.operador,
+            cliente=cliente,
+        )
+        self.client.force_login(self.admin)
+
+        for termo in ('MADAME FENERICH', 'MADAME', 'FENERICH', '67890'):
+            with self.subTest(termo=termo):
+                resposta = self.client.get(reverse('busca_global'), {'q': termo})
+                self.assertContains(resposta, ticket.titulo)
 
 
 class CaixaEntradaTests(TestCase):

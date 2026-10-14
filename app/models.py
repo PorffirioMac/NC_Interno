@@ -133,6 +133,7 @@ class Task(models.Model):
     AREAS = [
         ('tickets', 'Tickets'),
         ('comercial', 'Comercial'),
+        ('relacionada', 'Tarefa Relacionada'),
     ]
 
     MODULOS = [('', 'Sem Módulo Definido'), *MODULOS_SISTEMA]
@@ -236,6 +237,9 @@ class Task(models.Model):
             ('implantacao', 'Implantação'),
             ('cobranca', 'Cobrança'),
             ('planilha_fiscal', 'Planilha Fiscal'),
+            ('tarefa_interna', 'Tarefa Interna'),
+            ('retorno_cliente', 'Retorno ao Cliente'),
+            ('outro', 'Outro'),
         ],
         blank=True,
         default='',
@@ -248,10 +252,15 @@ class Task(models.Model):
     valor_mensalidade = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
     )
+    valor_mensal_anterior = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+    )
     valor_implantacao = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
     )
     data_primeira_cobranca = models.DateField(null=True, blank=True)
+    motivo_alteracao = models.TextField(blank=True)
+    bloqueia_encerramento = models.BooleanField(default=False)
     prazo = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -643,6 +652,67 @@ class ConfirmacaoDespesaFinanceira(models.Model):
 
     def __str__(self):
         return f'{self.despesa} confirmado por {self.usuario} em {self.competencia:%m/%Y}'
+
+
+class CreditoMatriz(models.Model):
+    valor = models.DecimalField(
+        'Valor do crédito',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    origem = models.CharField('Origem do crédito', max_length=250)
+    utilizado = models.BooleanField('Crédito utilizado?', default=False)
+    boleto_utilizado = models.CharField(
+        'Boleto em que foi utilizado',
+        max_length=250,
+        blank=True,
+    )
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='creditos_matriz_criados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['utilizado', '-criado_em']
+
+    def __str__(self):
+        return f'{self.origem} - R$ {self.valor}'
+
+
+class ClienteProtestado(models.Model):
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.PROTECT,
+        related_name='protestos',
+    )
+    data_boleto = models.DateField('Data do boleto')
+    valor = models.DecimalField(
+        'Valor',
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    pago = models.BooleanField('Pago?', default=False)
+    data_pagamento = models.DateField('Data do pagamento', null=True, blank=True)
+    criado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='protestos_cadastrados',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['pago', 'data_boleto', 'cliente__nome_fantasia']
+
+    def __str__(self):
+        return f'{self.cliente} - {self.data_boleto:%d/%m/%Y}'
 
 
 class Rotina(models.Model):

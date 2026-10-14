@@ -4,7 +4,8 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from .models import (
-    Cliente, DespesaFinanceira, ErroConhecido, ProcedimentoInterno, Release,
+    Cliente, ClienteProtestado, CreditoMatriz, DespesaFinanceira, ErroConhecido,
+    ProcedimentoInterno, Release,
     Rotina, SolicitacaoRelease, SugestaoDesenvolvimento,
 )
 
@@ -179,6 +180,92 @@ class DespesaFinanceiraForm(forms.ModelForm):
         if valor <= 0:
             raise forms.ValidationError('O valor deve ser maior que zero.')
         return valor
+
+
+class CreditoMatrizForm(forms.ModelForm):
+    valor = forms.CharField(
+        label='Valor do crédito',
+        widget=forms.TextInput(attrs={
+            'inputmode': 'decimal',
+            'placeholder': '0,00',
+        }),
+    )
+
+    class Meta:
+        model = CreditoMatriz
+        fields = ['valor', 'origem', 'utilizado', 'boleto_utilizado']
+        widgets = {
+            'origem': forms.TextInput(attrs={
+                'placeholder': 'Ex.: royalty pago do cliente que cancelou',
+            }),
+            'boleto_utilizado': forms.TextInput(attrs={
+                'placeholder': 'Identificação do boleto (se utilizado)',
+            }),
+        }
+
+    def clean_valor(self):
+        texto = self.cleaned_data['valor'].strip().replace(' ', '')
+        if ',' in texto:
+            texto = texto.replace('.', '').replace(',', '.')
+        try:
+            valor = Decimal(texto)
+        except InvalidOperation as error:
+            raise forms.ValidationError('Informe um valor válido.') from error
+        if valor <= 0:
+            raise forms.ValidationError('O valor deve ser maior que zero.')
+        return valor
+
+    def clean(self):
+        dados = super().clean()
+        if dados.get('utilizado') and not dados.get('boleto_utilizado', '').strip():
+            self.add_error(
+                'boleto_utilizado',
+                'Informe em qual boleto o crédito foi utilizado.',
+            )
+        if not dados.get('utilizado'):
+            dados['boleto_utilizado'] = ''
+        return dados
+
+
+class ClienteProtestadoForm(forms.ModelForm):
+    valor = forms.CharField(
+        label='Valor do boleto',
+        widget=forms.TextInput(attrs={'inputmode': 'decimal', 'placeholder': '0,00'}),
+    )
+
+    class Meta:
+        model = ClienteProtestado
+        fields = ['cliente', 'data_boleto', 'valor', 'pago', 'data_pagamento']
+        widgets = {
+            'data_boleto': forms.DateInput(attrs={'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.all().order_by('nome_fantasia')
+        self.fields['cliente'].empty_label = 'Selecione o cliente'
+        self.fields['data_pagamento'].required = False
+
+    def clean_valor(self):
+        texto = self.cleaned_data['valor'].strip().replace(' ', '')
+        if ',' in texto:
+            texto = texto.replace('.', '').replace(',', '.')
+        try:
+            valor = Decimal(texto)
+        except InvalidOperation as error:
+            raise forms.ValidationError('Informe um valor válido.') from error
+        if valor <= 0:
+            raise forms.ValidationError('O valor deve ser maior que zero.')
+        return valor
+
+    def clean(self):
+        dados = super().clean()
+        if dados.get('pago') and not dados.get('data_pagamento'):
+            self.add_error('data_pagamento', 'Informe a data em que o boleto foi pago.')
+        if not dados.get('pago'):
+            dados['data_pagamento'] = None
+        return dados
 
 
 class RotinaForm(forms.ModelForm):

@@ -26,9 +26,83 @@
     aplicarTema(temaInicial());
 
     document.addEventListener('DOMContentLoaded', function () {
-        const botao = document.createElement('button');
-        botao.type = 'button';
-        botao.className = 'theme-toggle';
+        const sidebar = document.querySelector('.app-sidebar');
+        const sidebarToggle = document.querySelector('.sidebar-mobile-toggle');
+        const sidebarDesktopToggle = document.querySelector('.sidebar-desktop-toggle');
+        const sidebarBackdrop = document.querySelector('.sidebar-backdrop');
+        const sidebarPreferenceKey = 'ncinterno-menu-recolhido';
+
+        function definirSidebar(aberta) {
+            document.body.classList.toggle('sidebar-open', aberta);
+            if (sidebarToggle) {
+                sidebarToggle.setAttribute('aria-expanded', String(aberta));
+                sidebarToggle.setAttribute('aria-label', aberta ? 'Fechar menu' : 'Abrir menu');
+            }
+        }
+
+        if (sidebar && sidebarToggle) {
+            sidebarToggle.addEventListener('click', function () {
+                definirSidebar(!document.body.classList.contains('sidebar-open'));
+            });
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', function () { definirSidebar(false); });
+            }
+            sidebar.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (window.innerWidth <= 900) definirSidebar(false);
+                });
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') definirSidebar(false);
+            });
+            window.addEventListener('resize', function () {
+                if (window.innerWidth > 900) definirSidebar(false);
+            });
+        }
+
+        function definirSidebarDesktop(recolhida, salvar) {
+            document.body.classList.toggle('sidebar-collapsed', recolhida);
+            if (sidebarDesktopToggle) {
+                sidebarDesktopToggle.textContent = recolhida ? '›' : '‹';
+                sidebarDesktopToggle.setAttribute('aria-expanded', String(!recolhida));
+                sidebarDesktopToggle.setAttribute(
+                    'aria-label',
+                    recolhida ? 'Expandir menu' : 'Recolher menu'
+                );
+                sidebarDesktopToggle.title = recolhida ? 'Expandir menu' : 'Recolher menu';
+            }
+            if (salvar) {
+                try {
+                    localStorage.setItem(sidebarPreferenceKey, recolhida ? '1' : '0');
+                } catch (error) {
+                    // Mantém o controle funcional mesmo sem armazenamento local.
+                }
+            }
+        }
+
+        if (sidebar && sidebarDesktopToggle) {
+            let recolhida = false;
+            try {
+                recolhida = localStorage.getItem(sidebarPreferenceKey) === '1';
+            } catch (error) {
+                recolhida = false;
+            }
+            definirSidebarDesktop(recolhida, false);
+            sidebarDesktopToggle.addEventListener('click', function () {
+                definirSidebarDesktop(
+                    !document.body.classList.contains('sidebar-collapsed'),
+                    true
+                );
+            });
+        }
+
+        let botao = document.querySelector('.theme-toggle');
+        if (!botao) {
+            botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'theme-toggle theme-toggle-floating';
+            document.body.appendChild(botao);
+        }
         botao.addEventListener('click', function () {
             const tema = root.dataset.theme === 'dark' ? 'light' : 'dark';
             aplicarTema(tema);
@@ -38,22 +112,207 @@
                 // Ignora somente a persistência quando ela não estiver disponível.
             }
         });
-        document.body.appendChild(botao);
         aplicarTema(root.dataset.theme || temaInicial());
+
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', function () {
+                try {
+                    sessionStorage.setItem('ncinterno-som-apos-login', '1');
+                } catch (error) {
+                    // O aviso continua funcionando nas próximas atualizações.
+                }
+            });
+        }
+
+        document.querySelectorAll('.kanban-scroll-shell').forEach(function (shell) {
+            const area = shell.querySelector('.kanban-scroll-area');
+            const anterior = shell.querySelector('.kanban-scroll-button.prev');
+            const proxima = shell.querySelector('.kanban-scroll-button.next');
+            if (!area) return;
+            function atualizarRolagem() {
+                shell.classList.toggle('can-left', area.scrollLeft > 5);
+                shell.classList.toggle(
+                    'can-right',
+                    area.scrollLeft + area.clientWidth < area.scrollWidth - 5
+                );
+            }
+            if (anterior) anterior.addEventListener('click', function () {
+                area.scrollBy({ left: -Math.max(300, area.clientWidth * .75), behavior: 'smooth' });
+            });
+            if (proxima) proxima.addEventListener('click', function () {
+                area.scrollBy({ left: Math.max(300, area.clientWidth * .75), behavior: 'smooth' });
+            });
+            area.addEventListener('scroll', atualizarRolagem, { passive: true });
+            window.addEventListener('resize', atualizarRolagem);
+            atualizarRolagem();
+        });
 
         const painel = document.getElementById('notificationPanel');
         if (!painel) return;
 
         const chavePainel = 'ncinterno-avisos-minimizado';
         const chavePosicao = 'ncinterno-avisos-posicao-y';
+        const chavePosicaoMinimizada = 'ncinterno-avisos-posicao-y-minimizado';
         const toggle = document.getElementById('notificationToggle');
         const close = document.getElementById('notificationClose');
         const header = painel.querySelector('.notification-header');
+        const conteudoPainel = document.getElementById('notificationContent');
+        let arrastouToggle = false;
+
+        function ajustarAlturaPainel() {
+            if (!conteudoPainel || painel.classList.contains('is-minimized')) return;
+            const topo = painel.getBoundingClientRect().top;
+            const alturaDisponivel = Math.max(220, window.innerHeight - topo - 8);
+            conteudoPainel.style.maxHeight = alturaDisponivel + 'px';
+        }
+
+        function tocarAviso() {
+            return new Promise(function (resolve, reject) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) {
+                    reject(new Error('Áudio não suportado.'));
+                    return;
+                }
+                try {
+                    const contexto = new AudioContext();
+                    function criarNota(frequencia, inicio, duracao, volume) {
+                        const oscilador = contexto.createOscillator();
+                        const ganho = contexto.createGain();
+                        oscilador.type = 'sine';
+                        oscilador.frequency.setValueAtTime(frequencia, inicio);
+                        ganho.gain.setValueAtTime(0.0001, inicio);
+                        ganho.gain.exponentialRampToValueAtTime(volume, inicio + 0.025);
+                        ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracao);
+                        oscilador.connect(ganho);
+                        ganho.connect(contexto.destination);
+                        oscilador.start(inicio);
+                        oscilador.stop(inicio + duracao);
+                    }
+                    function iniciar() {
+                        const agora = contexto.currentTime + 0.03;
+                        criarNota(659.25, agora, 0.22, 0.78);
+                        criarNota(783.99, agora + 0.15, 0.30, 0.70);
+                        window.setTimeout(function () {
+                            contexto.close().finally(resolve);
+                        }, 650);
+                    }
+                    if (contexto.state === 'suspended') {
+                        contexto.resume().then(iniciar).catch(reject);
+                    } else {
+                        iniciar();
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        let somPendente = false;
+        function tocarOuAguardarInteracao() {
+            tocarAviso().catch(function () {
+                if (somPendente) return;
+                somPendente = true;
+                function tentarNovamente() {
+                    document.removeEventListener('pointerdown', tentarNovamente);
+                    document.removeEventListener('keydown', tentarNovamente);
+                    somPendente = false;
+                    tocarAviso().catch(function () {});
+                }
+                document.addEventListener('pointerdown', tentarNovamente, { once: true });
+                document.addEventListener('keydown', tentarNovamente, { once: true });
+            });
+        }
+
+        const usuarioId = painel.dataset.userId;
+        const chaveAssinatura = 'ncinterno-avisos-assinatura-' + usuarioId;
+        const chaveSessao = 'ncinterno-avisos-sessao-' + usuarioId;
+        let assinaturaAtual = painel.dataset.unreadSignature || '0:0';
+        let totalAtual = Number(painel.dataset.unreadCount || 0);
+
+        function idsDaAssinatura(assinatura) {
+            return String(assinatura).split(':').map(function (valor) {
+                return Number(valor) || 0;
+            });
+        }
+
+        function assinaturaTemNovidade(nova, anterior) {
+            const idsNovos = idsDaAssinatura(nova);
+            const idsAnteriores = idsDaAssinatura(anterior);
+            return idsNovos.some(function (id, indice) {
+                return id > (idsAnteriores[indice] || 0);
+            });
+        }
+
+        try {
+            const assinaturaSalva = localStorage.getItem(chaveAssinatura);
+            const veioDoLogin = sessionStorage.getItem('ncinterno-som-apos-login') === '1';
+            const primeiraPaginaDaSessao = sessionStorage.getItem(chaveSessao) !== '1';
+            sessionStorage.removeItem('ncinterno-som-apos-login');
+            sessionStorage.setItem(chaveSessao, '1');
+            if (
+                totalAtual > 0
+                && (
+                    veioDoLogin
+                    || primeiraPaginaDaSessao
+                    || (assinaturaSalva && assinaturaTemNovidade(assinaturaAtual, assinaturaSalva))
+                )
+            ) {
+                window.setTimeout(tocarOuAguardarInteracao, 350);
+            }
+            localStorage.setItem(chaveAssinatura, assinaturaAtual);
+        } catch (error) {
+            // O acompanhamento em memória continua disponível.
+        }
+
+        let consultandoStatus = false;
+        function consultarNovidades() {
+            if (consultandoStatus || document.hidden) return;
+            consultandoStatus = true;
+            fetch(painel.dataset.statusUrl, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                cache: 'no-store'
+            })
+                .then(function (resposta) {
+                    if (!resposta.ok) throw new Error('Não foi possível consultar os avisos.');
+                    return resposta.json();
+                })
+                .then(function (dados) {
+                    const novaAssinatura = dados.assinatura || '0:0';
+                    const novoTotal = Number(dados.total || 0);
+                    if (
+                        novoTotal > 0
+                        && assinaturaTemNovidade(novaAssinatura, assinaturaAtual)
+                    ) {
+                        tocarOuAguardarInteracao();
+                    }
+                    assinaturaAtual = novaAssinatura;
+                    totalAtual = novoTotal;
+                    try {
+                        localStorage.setItem(chaveAssinatura, assinaturaAtual);
+                    } catch (error) {
+                        // Mantém apenas o acompanhamento desta página.
+                    }
+                })
+                .catch(function () {
+                    // Falhas temporárias não interrompem a página.
+                })
+                .finally(function () {
+                    consultandoStatus = false;
+                });
+        }
+        window.setInterval(consultarNovidades, 20000);
+        document.addEventListener('visibilitychange', consultarNovidades);
 
         function definirMinimizado(minimizado) {
             painel.classList.toggle('is-minimized', minimizado);
             if (toggle) toggle.setAttribute('aria-expanded', String(!minimizado));
-            if (!minimizado) aplicarPosicaoSalva();
+            if (minimizado) aplicarPosicaoMinimizada();
+            else {
+                aplicarPosicaoSalva();
+                ajustarAlturaPainel();
+            }
             try {
                 localStorage.setItem(chavePainel, minimizado ? '1' : '0');
             } catch (error) {
@@ -68,7 +327,15 @@
         }
 
         if (close) close.addEventListener('click', function () { definirMinimizado(true); });
-        if (toggle) toggle.addEventListener('click', function () { definirMinimizado(false); });
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                if (arrastouToggle) {
+                    arrastouToggle = false;
+                    return;
+                }
+                definirMinimizado(false);
+            });
+        }
 
         function limitarPosicao(top) {
             const margem = 8;
@@ -84,13 +351,35 @@
                 if (Number.isFinite(salva) && salva > 0) {
                     painel.style.top = limitarPosicao(salva) + 'px';
                     painel.style.bottom = 'auto';
+                } else {
+                    painel.style.top = (window.innerWidth <= 700 ? 74 : 86) + 'px';
+                    painel.style.bottom = 'auto';
                 }
             } catch (error) {
                 // Mantém a posição padrão quando o armazenamento estiver bloqueado.
             }
         }
 
+        function aplicarPosicaoMinimizada() {
+            if (!painel.classList.contains('is-minimized')) return;
+            try {
+                const salva = Number(localStorage.getItem(chavePosicaoMinimizada));
+                if (Number.isFinite(salva) && salva > 0) {
+                    painel.style.top = limitarPosicao(salva) + 'px';
+                    painel.style.bottom = 'auto';
+                } else {
+                    painel.style.top = 'auto';
+                    painel.style.bottom = '80px';
+                }
+            } catch (error) {
+                painel.style.top = 'auto';
+                painel.style.bottom = '80px';
+            }
+        }
+
         aplicarPosicaoSalva();
+        ajustarAlturaPainel();
+        window.addEventListener('resize', ajustarAlturaPainel);
 
         if (header) {
             header.addEventListener('pointerdown', function (event) {
@@ -105,6 +394,7 @@
                     const top = limitarPosicao(inicioTop + moveEvent.clientY - inicioY);
                     painel.style.top = top + 'px';
                     painel.style.bottom = 'auto';
+                    ajustarAlturaPainel();
                 }
 
                 function finalizar() {
@@ -128,9 +418,50 @@
             });
         }
 
+        if (toggle) {
+            toggle.addEventListener('pointerdown', function (event) {
+                event.preventDefault();
+                const inicioY = event.clientY;
+                const inicioTop = painel.getBoundingClientRect().top;
+                arrastouToggle = false;
+                painel.classList.add('is-dragging');
+                toggle.setPointerCapture(event.pointerId);
+
+                function mover(moveEvent) {
+                    if (Math.abs(moveEvent.clientY - inicioY) > 4) {
+                        arrastouToggle = true;
+                    }
+                    if (!arrastouToggle) return;
+                    const top = limitarPosicao(inicioTop + moveEvent.clientY - inicioY);
+                    painel.style.top = top + 'px';
+                    painel.style.bottom = 'auto';
+                }
+
+                function finalizar() {
+                    painel.classList.remove('is-dragging');
+                    toggle.removeEventListener('pointermove', mover);
+                    toggle.removeEventListener('pointerup', finalizar);
+                    toggle.removeEventListener('pointercancel', finalizar);
+                    if (!arrastouToggle) return;
+                    try {
+                        localStorage.setItem(
+                            chavePosicaoMinimizada,
+                            String(Math.round(painel.getBoundingClientRect().top))
+                        );
+                    } catch (error) {
+                        // A movimentação continua funcional sem persistência.
+                    }
+                }
+
+                toggle.addEventListener('pointermove', mover);
+                toggle.addEventListener('pointerup', finalizar);
+                toggle.addEventListener('pointercancel', finalizar);
+            });
+        }
+
         window.addEventListener('resize', function () {
-            if (painel.classList.contains('is-minimized')) return;
             painel.style.top = limitarPosicao(painel.getBoundingClientRect().top) + 'px';
+            painel.style.bottom = 'auto';
         });
 
         function csrfToken() {
@@ -151,12 +482,50 @@
             });
         }
 
+        const updates = document.getElementById('notificationUpdates');
+
+        function reduzirBadge(quantidade) {
+            const badge = document.getElementById('notificationBadge');
+            if (!badge) return;
+            const restante = Math.max(0, Number(badge.textContent || 0) - quantidade);
+            if (restante) badge.textContent = String(restante);
+            else badge.remove();
+        }
+
+        function mostrarAtualizacoesVazias() {
+            if (!updates || updates.querySelector('.notification-update-row')) return;
+            updates.innerHTML = '<p class="notification-empty">Nenhuma atualização nova.</p>';
+            const botaoTodas = document.getElementById('notificationReadAll');
+            if (botaoTodas) botaoTodas.remove();
+        }
+
         painel.querySelectorAll('[data-read-url]').forEach(function (item) {
             item.addEventListener('click', function (event) {
-                if (!item.classList.contains('unread')) return;
                 event.preventDefault();
                 postar(item.dataset.readUrl).finally(function () {
                     window.location.href = item.href;
+                });
+            });
+        });
+
+        painel.querySelectorAll('[data-dismiss-url]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                botao.disabled = true;
+                postar(botao.dataset.dismissUrl).then(function (response) {
+                    if (!response.ok) throw new Error('Não foi possível confirmar a atualização.');
+                    const linha = botao.closest('.notification-update-row');
+                    const secaoDescartavel = linha && linha.closest('[data-dismissible-section]');
+                    if (linha) linha.remove();
+                    if (
+                        secaoDescartavel
+                        && !secaoDescartavel.querySelector('.notification-update-row')
+                    ) {
+                        secaoDescartavel.remove();
+                    }
+                    if (botao.dataset.affectsBadge !== 'false') reduzirBadge(1);
+                    mostrarAtualizacoesVazias();
+                }).catch(function () {
+                    botao.disabled = false;
                 });
             });
         });
@@ -166,18 +535,13 @@
             readAll.addEventListener('click', function () {
                 postar(readAll.dataset.url).then(function (response) {
                     if (!response.ok) return;
-                    painel.querySelectorAll('#notificationUpdates .notification-item.unread').forEach(function (item) {
-                        item.classList.remove('unread');
+                    const quantidade = Number(updates && updates.dataset.updateCount || 0);
+                    painel.querySelectorAll('#notificationUpdates .notification-update-row').forEach(function (item) {
+                        item.remove();
                     });
                     readAll.remove();
-                    const badge = document.getElementById('notificationBadge');
-                    if (badge) {
-                        const restantes = painel.querySelectorAll(
-                            '.notification-item.deadline, .notification-item.communication.unread'
-                        ).length;
-                        if (restantes) badge.textContent = String(restantes);
-                        else badge.remove();
-                    }
+                    reduzirBadge(quantidade);
+                    mostrarAtualizacoesVazias();
                 });
             });
         }

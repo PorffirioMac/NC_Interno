@@ -63,6 +63,7 @@
                 </a>
                 <button type="button" class="notification-dismiss"
                         data-dismiss-url="{% url 'concluir_tarefa_pessoal' tarefa_pessoal.id %}"
+                        data-affects-badge="false"
                         aria-label="Concluir {{ tarefa_pessoal.titulo }}">OK</button>
             </div>
             {% endfor %}

@@ -1,34 +1,45 @@
 {% load static notificacoes_tags %}
 {% caixa_nao_lidas as total_caixa_nao_lidas %}
 {% with pagina=request.resolver_match.url_name %}
-<nav class="app-nav" aria-label="Menu principal">
+<button type="button" class="sidebar-mobile-toggle" aria-controls="appSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
+<nav class="app-nav app-sidebar" id="appSidebar" aria-label="Menu principal">
     <a class="app-brand" href="{% url 'dashboard' %}" aria-label="Ir para o Dashboard" title="NetCamp">
         <img class="app-brand-logo logo-light" src="{% static 'app/images/netcamp-logo-blue.png' %}" alt="NetCamp">
         <img class="app-brand-logo logo-dark" src="{% static 'app/images/netcamp-logo-white.png' %}" alt="">
+        <span><strong>NC Interno</strong><small>NetCamp</small></span>
     </a>
-    <a href="{% url 'dashboard' %}" {% if pagina == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
-    <a href="{% url 'tarefas' %}" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' %}class="active"{% endif %}>📋 Tickets</a>
-    <a href="{% url 'calendario' %}" {% if pagina == 'calendario' %}class="active"{% endif %}>📅 Calendário</a>
-    {% if perms.app.acessar_financeiro %}
-    <a href="{% url 'financeiro' %}" {% if pagina == 'financeiro' %}class="active"{% endif %}>💰 Financeiro</a>
-    {% endif %}
-    <a href="{% url 'rotina' %}" {% if pagina == 'rotina' %}class="active"{% endif %}>✅ Rotina</a>
-    <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
-    <a href="{% url 'procedimentos_internos' %}" {% if pagina == 'procedimentos_internos' or pagina == 'criar_procedimento' or pagina == 'editar_procedimento' or pagina == 'detalhes_procedimento' %}class="active"{% endif %}>📚 Procedimentos</a>
-    <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
-    <a href="{% url 'sugestoes_desenvolvimento' %}" {% if pagina == 'sugestoes_desenvolvimento' or pagina == 'criar_sugestao_desenvolvimento' or pagina == 'editar_sugestao_desenvolvimento' or pagina == 'detalhes_sugestao_desenvolvimento' %}class="active"{% endif %}>💡 Sugestões</a>
-    <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
-    <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
-    <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
-    {% if request.user.username == 'gabriel.porfirio' %}
-    <a href="{% url 'area_gabriel' %}" {% if pagina == 'area_gabriel' %}class="active"{% endif %}>🔒 Gabriel</a>
-    {% endif %}
-    <form class="global-search" action="{% url 'busca_global' %}" method="get" role="search">
-        <span aria-hidden="true">⌕</span>
-        <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Busca global" aria-label="Buscar em todo o sistema" required>
-    </form>
-    <span class="app-version" style="margin-left:auto;">Versão 1.6.0</span>
-    <button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+    <div class="app-nav-scroll">
+        <span class="nav-section-label">Visão geral</span>
+        <a href="{% url 'dashboard' %}" {% if pagina == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
+        <a href="{% url 'calendario' %}" {% if pagina == 'calendario' %}class="active"{% endif %}>📅 Calendário</a>
+
+        <span class="nav-section-label">Operação</span>
+        <a href="{% url 'tarefas' %}" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' or pagina == 'criar_tarefa_relacionada' %}class="active"{% endif %}>📋 Tickets</a>
+        <a href="{% url 'rotina' %}" {% if pagina == 'rotina' %}class="active"{% endif %}>✅ Rotina</a>
+        <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
+        <a href="{% url 'procedimentos_internos' %}" {% if pagina == 'procedimentos_internos' or pagina == 'criar_procedimento' or pagina == 'editar_procedimento' or pagina == 'detalhes_procedimento' %}class="active"{% endif %}>📚 Procedimentos</a>
+        <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
+        <a href="{% url 'sugestoes_desenvolvimento' %}" {% if pagina == 'sugestoes_desenvolvimento' or pagina == 'criar_sugestao_desenvolvimento' or pagina == 'editar_sugestao_desenvolvimento' or pagina == 'detalhes_sugestao_desenvolvimento' %}class="active"{% endif %}>💡 Sugestões</a>
+
+        <span class="nav-section-label">Gestão</span>
+        <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
+        {% if perms.app.acessar_financeiro %}<a href="{% url 'financeiro' %}" {% if pagina == 'financeiro' %}class="active"{% endif %}>💰 Financeiro</a>{% endif %}
+        <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
+        <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
+        {% if request.user.username == 'gabriel.porfirio' %}<a href="{% url 'area_gabriel' %}" {% if pagina == 'area_gabriel' %}class="active"{% endif %}>🔒 Gabriel</a>{% endif %}
+    </div>
+    <div class="app-nav-footer">
+        <form class="global-search" action="{% url 'busca_global' %}" method="get" role="search">
+            <span aria-hidden="true">⌕</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Busca global" aria-label="Buscar em todo o sistema" required>
+        </form>
+        <div class="sidebar-footer-row"><span class="app-version">Versão 1.6.1</span><button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema">🌙</button></div>
+    </div>
 </nav>
+<button type="button" class="sidebar-desktop-toggle" aria-controls="appSidebar" aria-expanded="true" aria-label="Recolher menu" title="Recolher menu">‹</button>
+<a class="sidebar-collapsed-home" href="{% url 'dashboard' %}" aria-label="Ir para o Dashboard" title="Início">
+    <img class="logo-light" src="{% static 'app/images/netcamp-logo-blue.png' %}" alt="NetCamp">
+    <img class="logo-dark" src="{% static 'app/images/netcamp-logo-white.png' %}" alt="">
+</a>
+<button type="button" class="sidebar-backdrop" aria-label="Fechar menu"></button>
 {% painel_notificacoes %}
 {% endwith %}
