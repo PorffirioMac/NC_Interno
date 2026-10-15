@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,10 +27,10 @@
         .btn.secondary { background:var(--surface-muted,#e9eef5); color:var(--text,#273244); }
         @media(max-width:720px){ .grid,.new-client{grid-template-columns:1fr}.wide{grid-column:auto}.card{padding:20px} }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1"><script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3"><script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <header class="topo"><h2>🚀 Disparo de tarefas do novo cliente</h2></header>
+    <header class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-rocket"></use></svg>Disparo de tarefas do novo cliente</h2></header>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
         <a class="voltar" href="{% url 'detalhes_tarefa' comercial.id %}">← Voltar ao card comercial</a>
@@ -79,3 +79,6 @@
     </script>
 </body>
 </html>
+
+
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -50,12 +50,12 @@
             .performance-stats { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📊 Dashboard</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-dashboard"></use></svg>Dashboard</h2>
         <div class="user-info">
             <span>{{ user.get_full_name|default:user.username }}</span>
             {% if is_admin %}<span class="badge-admin">Admin</span>{% endif %}
@@ -80,14 +80,14 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=todas" class="card-link">
                     <div class="card">
-                        <div class="icon">📋</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-ticket"></use></svg></div>
                         <h3>Total de Tickets (Sistema)</h3>
                         <div class="numero">{{ total_tarefas }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=minhas" class="card-link">
                     <div class="card">
-                        <div class="icon">👤</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-user"></use></svg></div>
                         <h3>Meus Tickets</h3>
                         <div class="numero">{{ minhas_tarefas }}</div>
                     </div>
@@ -99,21 +99,21 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=ativas" class="card-link">
                     <div class="card">
-                        <div class="icon">🟢</div>
+                        <div class="icon"><span class="status-symbol done"></span></div>
                         <h3>Tickets Ativos</h3>
                         <div class="numero">{{ tarefas_ativas }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=hoje" class="card-link">
                     <div class="card">
-                        <div class="icon">🟡</div>
+                        <div class="icon"><span class="status-symbol pending"></span></div>
                         <h3>Tickets para Hoje</h3>
                         <div class="numero">{{ tarefas_para_hoje }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=atrasadas" class="card-link">
                     <div class="card">
-                        <div class="icon">🔴</div>
+                        <div class="icon"><span class="status-symbol priority-high"></span></div>
                         <h3>Tickets Atrasados</h3>
                         <div class="numero">{{ tarefas_atrasadas }}</div>
                     </div>
@@ -125,21 +125,21 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_netcamp" class="card-link">
                     <div class="card">
-                        <div class="icon">🏢</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-clients"></use></svg></div>
                         <h3>Pendente NetCamp</h3>
                         <div class="numero">{{ status_counts.pendente_netcamp }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_cliente" class="card-link">
                     <div class="card">
-                        <div class="icon">👤</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-user"></use></svg></div>
                         <h3>Pendente Cliente</h3>
                         <div class="numero">{{ status_counts.pendente_cliente }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_netcontroll" class="card-link">
                     <div class="card">
-                        <div class="icon">⚙️</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-tool"></use></svg></div>
                         <h3>Pendente Netcontroll</h3>
                         <div class="numero">{{ status_counts.pendente_netcontroll }}</div>
                     </div>
@@ -147,6 +147,7 @@
             </div>
         </section>
         <section class="dashboard-section" aria-labelledby="desempenho-equipe">
+            <section class="dashboard-section"><h2>Gargalos operacionais</h2><div class="cards"><div class="card"><h3>Sem responsável</h3><div class="numero">{{ gargalos.sem_responsavel }}</div></div><div class="card"><h3>Sem movimentação há 3 dias</h3><div class="numero">{{ gargalos.sem_movimento }}</div></div><div class="card"><h3>SLA vencido</h3><div class="numero">{{ gargalos.sla_vencido }}</div></div><div class="card"><h3>Bloqueados por dependência</h3><div class="numero">{{ gargalos.bloqueados }}</div></div></div></section>
             <h2 id="desempenho-equipe">Desempenho individual da equipe</h2>
             <p class="performance-intro">Resumo por responsável. A semana atual começou em {{ inicio_semana|date:'d/m/Y' }}.</p>
             <div class="user-performance-grid">
@@ -201,14 +202,14 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=todas" class="card-link">
                     <div class="card">
-                        <div class="icon">📋</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-ticket"></use></svg></div>
                         <h3>Total de Tickets</h3>
                         <div class="numero">{{ total_tarefas }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=minhas" class="card-link">
                     <div class="card">
-                        <div class="icon">👤</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-user"></use></svg></div>
                         <h3>Meus Tickets</h3>
                         <div class="numero">{{ minhas_tarefas }}</div>
                     </div>
@@ -220,21 +221,21 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=ativas" class="card-link">
                     <div class="card">
-                        <div class="icon">🟢</div>
+                        <div class="icon"><span class="status-symbol done"></span></div>
                         <h3>Tickets Ativos</h3>
                         <div class="numero">{{ tarefas_ativas }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=hoje" class="card-link">
                     <div class="card">
-                        <div class="icon">🟡</div>
+                        <div class="icon"><span class="status-symbol pending"></span></div>
                         <h3>Tickets para Hoje</h3>
                         <div class="numero">{{ tarefas_para_hoje }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=atrasadas" class="card-link">
                     <div class="card">
-                        <div class="icon">🔴</div>
+                        <div class="icon"><span class="status-symbol priority-high"></span></div>
                         <h3>Tickets Atrasados</h3>
                         <div class="numero">{{ tarefas_atrasadas }}</div>
                     </div>
@@ -246,21 +247,21 @@
             <div class="cards">
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_netcamp" class="card-link">
                     <div class="card">
-                        <div class="icon">🏢</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-clients"></use></svg></div>
                         <h3>Pendente NetCamp</h3>
                         <div class="numero">{{ status_counts.pendente_netcamp }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_cliente" class="card-link">
                     <div class="card">
-                        <div class="icon">👤</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-user"></use></svg></div>
                         <h3>Pendente Cliente</h3>
                         <div class="numero">{{ status_counts.pendente_cliente }}</div>
                     </div>
                 </a>
                 <a href="{% url 'tarefas' %}?view=lista&filtro=pendente_netcontroll" class="card-link">
                     <div class="card">
-                        <div class="icon">⚙️</div>
+                        <div class="icon"><svg class="ui-icon"><use href="#nc-icon-tool"></use></svg></div>
                         <h3>Pendente Netcontroll</h3>
                         <div class="numero">{{ status_counts.pendente_netcontroll }}</div>
                     </div>
@@ -274,9 +275,12 @@
         {% endif %}
 
         <div class="boas-vindas">
-            <h1>Bem-vindo, {{ user.username }}! 👋</h1>
+            <h1>Bem-vindo, {{ user.username }}!</h1>
             <p>Use o menu acima para navegar entre Tickets, Clientes, Comercial e outras funcionalidades.</p>
         </div>
     </div>
 </body>
 </html>
+
+
+

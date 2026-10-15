@@ -82,10 +82,10 @@ class PainelNotificacoesTests(TestCase):
         resposta = self.client.get(reverse('dashboard'))
         conteudo = resposta.content.decode()
 
-        self.assertLess(conteudo.index('⏰ Prazos'), conteudo.index('🛟 Plantão'))
-        self.assertLess(conteudo.index('🛟 Plantão'), conteudo.index('💰 Financeiro hoje'))
-        self.assertLess(conteudo.index('💰 Financeiro hoje'), conteudo.index('📥 Comunicados'))
-        self.assertLess(conteudo.index('📥 Comunicados'), conteudo.index('💬 Atualizações'))
+        self.assertLess(conteudo.index('Prazos</h3>'), conteudo.index('Plantão</h3>'))
+        self.assertLess(conteudo.index('Plantão</h3>'), conteudo.index('Financeiro hoje</h3>'))
+        self.assertLess(conteudo.index('Financeiro hoje</h3>'), conteudo.index('Comunicados</h3>'))
+        self.assertLess(conteudo.index('Comunicados</h3>'), conteudo.index('Atualizações</h3>'))
 
     def test_comentario_notifica_responsavel(self):
         self.client.force_login(self.outro)
@@ -751,7 +751,7 @@ class PendenciasPlantaoTests(TestCase):
 
         dashboard = self.client.get(reverse('dashboard'))
 
-        self.assertContains(dashboard, '🛟 Plantão')
+        self.assertContains(dashboard, 'Plantão</h3>', html=False)
         self.assertContains(dashboard, self.tarefa.titulo)
 
         self.client.post(

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -42,11 +42,11 @@
         @media (max-width: 850px) { .form-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <header class="topo"><h2>✅ Rotina</h2><span>{{ user.get_full_name|default:user.username }}</span></header>
+    <header class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-check"></use></svg>Rotina</h2><span>{{ user.get_full_name|default:user.username }}</span></header>
     {% include 'app/base_nav_snippet.html' %}
 
     <main class="container">
@@ -70,7 +70,7 @@
                     <form method="post" action="{% url 'concluir_rotina' item.id %}">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'rotina' %}">
-                        <button type="submit" class="complete-button">✓ Marcar como concluída</button>
+                        <button type="submit" class="complete-button"><svg class="ui-icon"><use href="#nc-icon-check"></use></svg>Marcar como concluída</button>
                     </form>
                 </article>
                 {% empty %}
@@ -132,3 +132,6 @@
     </main>
 </body>
 </html>
+
+
+

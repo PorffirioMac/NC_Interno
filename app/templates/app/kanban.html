@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -58,12 +58,12 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; }
         .badge-admin { background: #ffc107; color: #333; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📋 Tickets</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-ticket"></use></svg>Tickets</h2>
         <div>
             {% if is_admin %}<span class="badge-admin">Admin</span>{% endif %}
             <a href="{% url 'logout' %}" style="color: white; text-decoration: none; margin-left: 16px;">Sair</a>
@@ -73,7 +73,7 @@
     {% include 'app/base_nav_snippet.html' %}
 
     <div class="container">
-        <div class="workspace-marker technical">🛠 Ambiente Técnico</div>
+        <div class="workspace-marker technical"><svg class="ui-icon"><use href="#nc-icon-tool"></use></svg>Ambiente Técnico</div>
         {% if messages %}
         <ul class="mensagens">
             {% for msg in messages %}
@@ -128,7 +128,7 @@
                 {% endif %}
                 <a href="{% url 'criar_tarefa' %}" class="btn">+ Novo Ticket</a>
                 <a href="{% url 'tarefas_encerradas' %}" class="btn btn-outline encerradas-btn" style="background:#fff;color:#333;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;">
-                    <span style="display:inline-flex;align-items:center;gap:8px;">📁 Encerradas</span>
+                    <span style="display:inline-flex;align-items:center;gap:8px;"><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg>Encerradas</span>
                     <span class="encerradas-count" style="background:#f1f3f5;color:#333;padding:4px 8px;border-radius:12px;font-weight:600;">{{ encerradas_count }}</span>
                 </a>
             </div>
@@ -153,14 +153,14 @@
                         <p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:"— Sem cliente —" }}</p>
                         <p>{{ tarefa.descricao|truncatewords:15 }}</p>
                         <div class="meta">
-                            <span>🔵 {{ tarefa.get_status_display }}</span>
-                            <span>👤 {{ tarefa.responsavel.username|default:"—" }}</span>
+                            <span><span class="status-symbol done"></span>{{ tarefa.get_status_display }}</span>
+                            <span><svg class="ui-icon"><use href="#nc-icon-user"></use></svg>{{ tarefa.responsavel.username|default:"—" }}</span>
                         </div>
                         <div class="meta" style="margin-top: 8px; gap: 8px;">
                             <span>⏱️ Prazo: {{ tarefa.prazo|date:"d/m/Y"|default:"—" }}</span>
                         </div>
                         <div class="meta" style="margin-top: 8px; gap: 8px;">
-                            <span>💬 Última atualização: {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:"d/m/Y H:i" }}{% else %}Nenhum comentário{% endif %}</span>
+                            <span><svg class="ui-icon"><use href="#nc-icon-comment"></use></svg>Última atualização: {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:"d/m/Y H:i" }}{% else %}Nenhum comentário{% endif %}</span>
                         </div>
                         <div class="card-footer">
                             <a href="{% url 'detalhes_tarefa' tarefa.id %}">Ver detalhes</a>
@@ -296,3 +296,6 @@
     </script>
 </body>
 </html>
+
+
+

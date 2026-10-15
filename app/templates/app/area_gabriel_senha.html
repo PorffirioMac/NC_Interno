@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Área Gabriel - NC Interno</title>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
     <style>
         .private-lock { width: min(430px, calc(100% - 32px)); margin: 70px auto; padding: 32px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-strong); box-shadow: var(--shadow); }
         .private-lock-icon { font-size: 42px; }
@@ -22,10 +22,10 @@
     </style>
 </head>
 <body>
-    <header class="topo"><h2>🔒 Área Gabriel</h2></header>
+    <header class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-lock"></use></svg>Área Gabriel</h2></header>
     {% include 'app/base_nav_snippet.html' %}
     <main class="private-lock">
-        <div class="private-lock-icon">🔐</div>
+        <div class="private-lock-icon"><svg class="ui-icon"><use href="#nc-icon-lock"></use></svg></div>
         {% if pin_cadastrado %}
         <h1>Digite seu PIN</h1>
         <p>Use o PIN cadastrado para acessar sua área privada. O acesso ficará liberado por 2 horas.</p>
@@ -66,3 +66,6 @@
     </main>
 </body>
 </html>
+
+
+

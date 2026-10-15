@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -41,12 +41,12 @@
             .campo-largo, .btn { grid-column: auto; }
         }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📋 {% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %}</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-ticket"></use></svg>{% if area == 'comercial' %}Nova Tarefa Comercial{% else %}Novo Ticket{% endif %}</h2>
     </div>
     {% include 'app/base_nav_snippet.html' %}
     <div class="container">
@@ -126,6 +126,13 @@
                         <option value="{{ usuario_opcao.id }}" {% if request.POST.responsavel == usuario_opcao.id|stringformat:"s" %}selected{% endif %}>{{ usuario_opcao.get_full_name|default:usuario_opcao.username }}</option>
                         {% endfor %}
                     </select>
+                </div>
+                <div>
+                    <label>Participantes / acompanhamento</label>
+                    <select name="participantes" multiple size="4">
+                        {% for usuario_opcao in users %}<option value="{{ usuario_opcao.id }}">{{ usuario_opcao.get_full_name|default:usuario_opcao.username }}</option>{% endfor %}
+                    </select>
+                    <small>Opcional. Use Ctrl para selecionar mais de uma pessoa.</small>
                 </div>
                 <button type="submit" class="btn">{% if area == 'comercial' %}Criar Tarefa Comercial{% else %}Criar Ticket{% endif %}</button>
             </form>
@@ -207,3 +214,6 @@
     </script>
 </body>
 </html>
+
+
+

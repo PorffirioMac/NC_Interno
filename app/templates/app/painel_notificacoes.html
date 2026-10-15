@@ -18,12 +18,12 @@
        data-status-url="{% url 'status_notificacoes' %}">
     <button type="button" class="notification-toggle" id="notificationToggle"
             aria-controls="notificationContent" aria-expanded="true">
-        <span class="notification-toggle-icon">🔔</span>
+        <span class="notification-toggle-icon"><svg class="ui-icon"><use href="#nc-icon-bell"></use></svg></span>
         <span class="notification-toggle-label">Avisos</span>
         {% if painel_total_alertas %}
         <span class="notification-badge" id="notificationBadge">{{ painel_total_alertas }}</span>
         {% endif %}
-        <span class="notification-chevron" aria-hidden="true">›</span>
+        <span class="notification-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span>
     </button>
     <div class="notification-content" id="notificationContent">
         <div class="notification-header">
@@ -32,7 +32,7 @@
                     title="Minimizar" aria-label="Minimizar central">×</button>
         </div>
         <section class="notification-section">
-            <h3>⏰ Prazos</h3>
+            <h3><svg class="ui-icon"><use href="#nc-icon-clock"></use></svg>Prazos</h3>
             {% for tarefa_item in painel_prazos %}
             <a class="notification-item deadline {% if tarefa_item.prazo < painel_hoje %}overdue{% else %}today{% endif %}"
                href="{% url 'detalhes_tarefa' tarefa_item.id %}">
@@ -49,7 +49,7 @@
         {% if painel_tarefas_pessoais %}
         <section class="notification-section" data-dismissible-section>
             <div class="notification-section-title">
-                <h3>📝 Meus lembretes</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-note"></use></svg>Meus lembretes</h3>
                 <a class="notification-inbox-link" href="{% url 'area_gabriel' %}">Ver página</a>
             </div>
             {% for tarefa_pessoal in painel_tarefas_pessoais %}
@@ -72,7 +72,7 @@
         {% if painel_tickets_plantao %}
         <section class="notification-section">
             <div class="notification-section-title">
-                <h3>🛟 Plantão</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-support"></use></svg>Plantão</h3>
                 <a class="notification-inbox-link" href="{% url 'tarefas' %}">Ver tickets</a>
             </div>
             {% for ticket_plantao in painel_tickets_plantao %}
@@ -89,7 +89,7 @@
         {% if painel_despesas_hoje %}
         <section class="notification-section" data-dismissible-section>
             <div class="notification-section-title">
-                <h3>💰 Financeiro hoje</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-finance"></use></svg>Financeiro hoje</h3>
                 <a class="notification-inbox-link" href="{% url 'financeiro' %}">Ver financeiro</a>
             </div>
             {% for despesa in painel_despesas_hoje %}
@@ -111,7 +111,7 @@
         {% if painel_rotinas_pendentes %}
         <section class="notification-section">
             <div class="notification-section-title">
-                <h3>✅ Rotina pendente</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-check"></use></svg>Rotina pendente</h3>
                 <a class="notification-inbox-link" href="{% url 'rotina' %}">Ver rotina</a>
             </div>
             {% for rotina_item in painel_rotinas_pendentes %}
@@ -124,7 +124,7 @@
                 <form method="post" action="{% url 'concluir_rotina' rotina_item.id %}" class="routine-popup-form">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.path }}">
-                    <button type="submit" title="Marcar como concluída" aria-label="Concluir {{ rotina_item.titulo }}">✓</button>
+                    <button type="submit" title="Marcar como concluída" aria-label="Concluir {{ rotina_item.titulo }}"><svg class="ui-icon"><use href="#nc-icon-check"></use></svg></button>
                 </form>
             </div>
             {% endfor %}
@@ -132,7 +132,7 @@
         {% endif %}
         <section class="notification-section">
             <div class="notification-section-title">
-                <h3>📥 Comunicados</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg>Comunicados</h3>
                 <a class="notification-inbox-link" href="{% url 'caixa_entrada' %}">Ver caixa</a>
             </div>
             {% for entrega in painel_comunicacoes %}
@@ -150,7 +150,7 @@
         </section>
         <section class="notification-section">
             <div class="notification-section-title">
-                <h3>💬 Atualizações</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-comment"></use></svg>Atualizações</h3>
                 {% if painel_nao_lidas %}
                 <button type="button" class="notification-read-all" id="notificationReadAll"
                         data-url="{% url 'marcar_todas_notificacoes_lidas' %}">Marcar todas como lidas</button>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,8 +37,8 @@
         .observacoes-form button { border: 0; cursor: pointer; margin-top: 10px; }
         @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo"><h2>Ficha do Cliente</h2></div>
@@ -75,6 +75,11 @@
                     </form>
                 </details>
             </div>
+            <div class="observacoes">
+                <h3>Jornada do cliente</h3>
+                <p style="color:var(--text-muted);margin-bottom:14px;">Histórico unificado de tickets, comentários, encerramentos e ocorrências financeiras.</p>
+                {% for evento in eventos %}<div style="display:grid;grid-template-columns:125px 120px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border);"><small>{{ evento.data|date:'d/m/Y H:i' }}</small><strong>{{ evento.tipo }}</strong><div>{% if evento.tarefa %}<a href="{% url 'detalhes_tarefa' evento.tarefa.id %}">{{ evento.titulo|truncatechars:150 }}</a>{% else %}{{ evento.titulo }}{% endif %}{% if evento.autor %}<small> — {{ evento.autor.username }}</small>{% endif %}</div></div>{% empty %}<p>Nenhuma movimentação registrada.</p>{% endfor %}
+            </div>
             {% if cliente.ativo %}
             <div class="cancelamento">
                 <details>
@@ -100,3 +105,6 @@
     </main>
 </body>
 </html>
+
+
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -46,12 +46,12 @@
         .legend .dot { width: 12px; height: 12px; border-radius: 50%; background: #1a73e8; }
         .empty-state { text-align: center; color: #777; padding: 36px 0; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📅 Calendário</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-calendar"></use></svg>Calendário</h2>
         <div>
             <span>{{ user.get_full_name|default:user.username }}</span>
             <a href="{% url 'logout' %}">Sair</a>
@@ -131,3 +131,6 @@
     </div>
 </body>
 </html>
+
+
+

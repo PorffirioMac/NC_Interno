@@ -1,15 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caixa de Entrada - NC Interno</title>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📥 Caixa de Entrada</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg>Caixa de Entrada</h2>
         <a href="{% url 'logout' %}" class="header-logout"><span aria-hidden="true">↪</span> Sair</a>
     </div>
     {% include 'app/base_nav_snippet.html' %}
@@ -21,7 +21,7 @@
 
         {% if request.user.is_superuser %}
         <details class="inbox-compose card-detalhe">
-            <summary>✉️ Criar comunicado</summary>
+            <summary><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg>Criar comunicado</summary>
             <form method="post">
                 {% csrf_token %}
                 <div class="grid-2">
@@ -81,10 +81,13 @@
                     <button class="btn btn-small" type="submit">Marcar como não lida</button>
                 </form>
                 {% else %}
-                <div class="inbox-placeholder"><span>📨</span><p>Selecione uma mensagem para ler.</p></div>
+                <div class="inbox-placeholder"><span><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg></span><p>Selecione uma mensagem para ler.</p></div>
                 {% endif %}
             </section>
         </div>
     </main>
 </body>
 </html>
+
+
+

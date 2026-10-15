@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,7 +30,7 @@
         .attachment-remove { border: 1px solid #d92d20; background: transparent; color: #d92d20; border-radius: 7px; padding: 6px 9px; cursor: pointer; }.attachment-empty { color: #7a8493; }
         @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .attachment-upload { min-width: 100%; } .attachment-item { grid-template-columns: auto 1fr; } .attachment-item form { grid-column: 2; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1"><script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3"><script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo"><h2>Erro Conhecido</h2></div>
@@ -48,7 +48,7 @@
         </article>
         <section class="card">
             <div class="attachment-heading">
-                <div><h2>📎 Anexos</h2><p>Arquivos de apoio, evidências e documentos relacionados a este erro.</p></div>
+                <div><h2><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg>Anexos</h2><p>Arquivos de apoio, evidências e documentos relacionados a este erro.</p></div>
                 <form method="post" enctype="multipart/form-data" class="attachment-upload">
                     {% csrf_token %}
                     <input type="hidden" name="enviar_anexo" value="1">
@@ -60,7 +60,7 @@
             <div class="attachment-list">
                 {% for anexo in erro.anexos.all %}
                 <div class="attachment-item">
-                    <span>📄</span>
+                    <span><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg></span>
                     <div><a class="attachment-download" href="{% url 'baixar_anexo_erro_conhecido' anexo.id %}">{{ anexo.nome_original }}</a><small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small></div>
                     <form method="post" action="{% url 'remover_anexo_erro_conhecido' anexo.id %}">{% csrf_token %}<button type="submit" class="attachment-remove" onclick="return confirm('Remover definitivamente este anexo?')">Remover</button></form>
                 </div>
@@ -70,3 +70,6 @@
     </main>
 </body>
 </html>
+
+
+

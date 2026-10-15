@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -47,12 +47,12 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         .voltar { display: inline-block; margin-bottom: 16px; color: #1a73e8; text-decoration: none; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <div class="topo">
-        <h2>📋 Detalhes do Ticket</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-ticket"></use></svg>Detalhes do Ticket</h2>
         <a href="{% url 'logout' %}">Sair</a>
     </div>
 
@@ -74,18 +74,18 @@
             <div class="tags">
                 <span class="tag">{{ tarefa.get_fase_display }}</span>
                 <span class="tag">{{ tarefa.get_status_display }}</span>
-                <span class="tag">🔴 {{ tarefa.get_prioridade_display }}</span>
-                <span class="tag">🧩 {{ tarefa.get_modulo_display }}</span>
+                <span class="tag"><span class="status-symbol priority-high"></span>{{ tarefa.get_prioridade_display }}</span>
+                <span class="tag"><svg class="ui-icon"><use href="#nc-icon-tool"></use></svg>{{ tarefa.get_modulo_display }}</span>
                 {% if tarefa.responsavel %}
-                <span class="tag">👤 {{ tarefa.responsavel.username }}</span>
+                <span class="tag"><svg class="ui-icon"><use href="#nc-icon-user"></use></svg>{{ tarefa.responsavel.username }}</span>
                 {% endif %}
                 {% if tarefa.cliente %}
-                <span class="tag">🏢 {{ tarefa.cliente.nome_fantasia }}</span>
+                <span class="tag"><svg class="ui-icon"><use href="#nc-icon-clients"></use></svg>{{ tarefa.cliente.nome_fantasia }}</span>
                 {% endif %}
             </div>
             {% if legacy_field_controls %}
             <div class="secao">
-                <h3>🏢 Cliente vinculado</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-clients"></use></svg>Cliente vinculado</h3>
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="atualizar_cliente" value="1">
@@ -102,11 +102,11 @@
             <p>{{ tarefa.descricao|linebreaks }}</p>
 
             {% if tarefa.participantes.exists %}
-            <div class="secao"><strong>👥 Acompanhamento:</strong> {% for participante in tarefa.participantes.all %}{{ participante.get_full_name|default:participante.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+            <div class="secao"><strong><svg class="ui-icon"><use href="#nc-icon-clients"></use></svg>Acompanhamento:</strong> {% for participante in tarefa.participantes.all %}{{ participante.get_full_name|default:participante.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
             {% endif %}
             {% if tarefa.tipo_disparo == 'cobranca' %}
             <div class="secao">
-                <h3>💳 Dados da cobrança</h3>
+                <h3><svg class="ui-icon"><use href="#nc-icon-finance"></use></svg>Dados da cobrança</h3>
                 <p><strong>Mensalidade recorrente:</strong> R$ {{ tarefa.valor_mensalidade|floatformat:2 }}</p>
                 {% if tarefa.valor_mensal_anterior is not None %}<p><strong>Valor mensal anterior:</strong> R$ {{ tarefa.valor_mensal_anterior|floatformat:2 }}</p>{% endif %}
                 <p><strong>Implantação:</strong> {% if tarefa.valor_implantacao is not None %}R$ {{ tarefa.valor_implantacao|floatformat:2 }}{% else %}Sem cobrança{% endif %}</p>
@@ -115,12 +115,12 @@
             </div>
             {% endif %}
             {% if tarefa.origem_disparo %}
-            <div class="secao"><strong>🔗 Origem:</strong> <a href="{% url 'detalhes_tarefa' tarefa.origem_disparo.id %}">{{ tarefa.origem_disparo.titulo }}</a></div>
+            <div class="secao"><strong><svg class="ui-icon"><use href="#nc-icon-link"></use></svg>Origem:</strong> <a href="{% url 'detalhes_tarefa' tarefa.origem_disparo.id %}">{{ tarefa.origem_disparo.titulo }}</a></div>
             {% endif %}
             {% if tarefa.tarefas_disparadas.exists %}
             <div class="secao">
-                <h3>🔗 Tarefas relacionadas</h3>
-                {% for relacionada in tarefa.tarefas_disparadas.all %}<p>{% if relacionada.encerrada %}✅{% else %}⏳{% endif %} <a href="{% url 'detalhes_tarefa' relacionada.id %}">{{ relacionada.get_tipo_disparo_display }} — {{ relacionada.titulo }}</a> · {{ relacionada.responsavel.username|default:'Sem responsável' }}{% if relacionada.bloqueia_encerramento and not relacionada.encerrada %} · <strong>Bloqueia encerramento</strong>{% endif %}</p>{% endfor %}
+                <h3><svg class="ui-icon"><use href="#nc-icon-link"></use></svg>Tarefas relacionadas</h3>
+                {% for relacionada in tarefa.tarefas_disparadas.all %}<p><span class="status-symbol {% if relacionada.encerrada %}done{% else %}pending{% endif %}"></span><a href="{% url 'detalhes_tarefa' relacionada.id %}">{{ relacionada.get_tipo_disparo_display }} — {{ relacionada.titulo }}</a> · {{ relacionada.responsavel.username|default:'Sem responsável' }}{% if relacionada.bloqueia_encerramento and not relacionada.encerrada %} · <strong>Bloqueia encerramento</strong>{% endif %}</p>{% endfor %}
             </div>
             {% endif %}
 
@@ -147,27 +147,26 @@
             <!-- BOTÃO DE ENCERRAR / REABRIR -->
             <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #eee; display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
                 {% if not tarefa.encerrada %}
-                <a href="{% url 'encerrar_tarefa' tarefa.id %}" class="btn" style="background: #28a745;"
-                   onclick="return confirm('Tem certeza que deseja encerrar este ticket?')">
-                    ✅ {% if tarefa.area == 'relacionada' %}Concluir Tarefa{% else %}Encerrar Ticket{% endif %}
+                <a href="#encerramento" class="btn" style="background: #28a745;">
+                    {% if tarefa.area == 'relacionada' %}Concluir Tarefa{% else %}Encerrar Ticket{% endif %}
                 </a>
                 {% if tarefa.area == 'comercial' %}
                     {% if tarefa.ticket_implantacao %}
-                    <a href="{% url 'detalhes_tarefa' tarefa.ticket_implantacao.id %}" class="btn" style="background:#6659d8;">🚀 Ver Ticket de Implantação</a>
+                    <a href="{% url 'detalhes_tarefa' tarefa.ticket_implantacao.id %}" class="btn" style="background:#6659d8;"><svg class="ui-icon"><use href="#nc-icon-rocket"></use></svg>Ver Ticket de Implantação</a>
                     {% else %}
-                    <a href="{% url 'gerar_ticket_implantacao' tarefa.id %}" class="btn" style="background:#6659d8;">🚀 Criar Ticket Técnico/Disparar Tarefas</a>
+                    <a href="{% url 'gerar_ticket_implantacao' tarefa.id %}" class="btn" style="background:#6659d8;"><svg class="ui-icon"><use href="#nc-icon-rocket"></use></svg>Criar Ticket Técnico/Disparar Tarefas</a>
                     {% endif %}
                 {% endif %}
                 {% else %}
                 <a href="{% url 'reabrir_tarefa' tarefa.id %}" class="btn" style="background: #ffc107; color: #333;">
-                    🔄 Reabrir Ticket
+                    Reabrir Ticket
                 </a>
                 {% endif %}
             </div>
         </div>
 
         <div class="card-detalhe" id="comentarios">
-            <h3>💬 Comentários</h3>
+            <h3><svg class="ui-icon"><use href="#nc-icon-comment"></use></svg>Comentários</h3>
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="comentario" value="1">
@@ -208,7 +207,7 @@
         </div>
 
         <div class="card-detalhe">
-            <h3>📝 Checklist</h3>
+            <h3><svg class="ui-icon"><use href="#nc-icon-note"></use></svg>Checklist</h3>
             <form method="post" style="display: flex; gap: 8px;">
                 {% csrf_token %}
                 <input type="hidden" name="checklist" value="1">
@@ -222,7 +221,7 @@
                     <input type="hidden" name="concluir_check" value="1">
                     <input type="hidden" name="item_id" value="{{ item.id }}">
                     <button type="submit" style="background: none; border: none; font-size: 18px; cursor: pointer;">
-                        {{ item.concluido|yesno:"✅,⬜" }}
+                        <span class="status-symbol {% if item.concluido %}done{% else %}pending{% endif %}"></span>
                     </button>
                 </form>
                 <span style="{% if item.concluido %}text-decoration: line-through; color: #999;{% endif %}">
@@ -237,7 +236,7 @@
         <div class="card-detalhe ticket-attachments">
             <div class="attachment-heading">
                 <div>
-                    <h3>📎 Anexos</h3>
+                    <h3><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg>Anexos</h3>
                     <p>Documentos, imagens, planilhas e arquivos compactados.</p>
                 </div>
                 {% if pode_anexar %}
@@ -254,7 +253,7 @@
             <div class="attachment-list">
                 {% for anexo in tarefa.anexos.all %}
                 <div class="attachment-item">
-                    <span class="attachment-icon">📄</span>
+                    <span class="attachment-icon"><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg></span>
                     <div>
                         <a class="attachment-download" href="{% url 'baixar_anexo_ticket' anexo.id %}">{{ anexo.nome_original }}</a>
                         <small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small>
@@ -275,9 +274,30 @@
             </div>
         </div>
 
+        <div class="card-detalhe">
+            <h3>Operação, SLA e colaboração</h3>
+            <div class="grid-2">
+                <div><strong>Primeira resposta</strong><p>{% if tarefa.primeira_resposta_em %}{{ tarefa.primeira_resposta_em|date:'d/m/Y H:i' }}{% elif tarefa.prazo_primeira_resposta %}Até {{ tarefa.prazo_primeira_resposta|date:'d/m/Y H:i' }}{% else %}Não configurada{% endif %}</p></div>
+                <div><strong>Prazo de solução</strong><p>{% if tarefa.prazo_solucao %}{{ tarefa.prazo_solucao|date:'d/m/Y H:i' }}{% else %}Não configurado{% endif %}</p></div>
+                <div><strong>Andamento</strong><p>{% if tarefa.motivo_pausa %}{{ tarefa.get_motivo_pausa_display }} desde {{ tarefa.pausado_desde|date:'d/m H:i' }}{% else %}Em andamento{% endif %}</p></div>
+                <div><strong>Dependências abertas</strong><p>{{ tarefa.dependencias.all|length }}</p></div>
+            </div>
+            {% if pode_editar or is_admin %}<details><summary class="btn btn-small">Configurar operação</summary>
+                <form method="post">{% csrf_token %}<input type="hidden" name="salvar_sla" value="1"><div class="grid-2"><label>Prazo da primeira resposta<input type="datetime-local" name="prazo_primeira_resposta" value="{{ tarefa.prazo_primeira_resposta|date:'Y-m-d\TH:i' }}"></label><label>Prazo da solução<input type="datetime-local" name="prazo_solucao" value="{{ tarefa.prazo_solucao|date:'Y-m-d\TH:i' }}"></label></div><label>Estado atual<select name="motivo_pausa"><option value="">Em andamento</option><option value="cliente" {% if tarefa.motivo_pausa == 'cliente' %}selected{% endif %}>Aguardando cliente</option><option value="netcamp" {% if tarefa.motivo_pausa == 'netcamp' %}selected{% endif %}>Aguardando NetCamp</option><option value="netcontroll" {% if tarefa.motivo_pausa == 'netcontroll' %}selected{% endif %}>Aguardando Netcontroll</option></select></label><button class="btn btn-small">Salvar SLA</button></form>
+                <form method="post">{% csrf_token %}<input type="hidden" name="salvar_participantes" value="1"><label>Participantes / acompanhamento<select name="participantes" multiple size="5">{% for usuario_opcao in users %}<option value="{{ usuario_opcao.id }}" {% if usuario_opcao in tarefa.participantes.all %}selected{% endif %}>{{ usuario_opcao.get_full_name|default:usuario_opcao.username }}</option>{% endfor %}</select></label><button class="btn btn-small">Salvar participantes</button></form>
+                <form method="post">{% csrf_token %}<input type="hidden" name="salvar_dependencias" value="1"><label>Este item depende de<select name="dependencias" multiple size="5">{% for item_opcao in tarefas_para_dependencia %}<option value="{{ item_opcao.id }}" {% if item_opcao in tarefa.dependencias.all %}selected{% endif %}>{{ item_opcao.titulo }}</option>{% endfor %}</select></label><button class="btn btn-small">Salvar dependências</button></form>
+            </details>{% endif %}
+        </div>
+
+        {% if not tarefa.encerrada and modelos_processos and tarefa.area != 'relacionada' %}<div class="card-detalhe"><h3>Disparar processo</h3><form method="post" action="{% url 'aplicar_modelo_processo' tarefa.id %}">{% csrf_token %}<select name="modelo" required><option value="">Selecione um modelo</option>{% for modelo in modelos_processos %}<option value="{{ modelo.id }}">{{ modelo.nome }} ({{ modelo.etapas.count }} etapas)</option>{% endfor %}</select><button class="btn">Criar tarefas do processo</button></form></div>{% endif %}
+
+        {% if sugestoes_erros or sugestoes_procedimentos %}<div class="card-detalhe"><h3>Base de conhecimento relacionada</h3>{% for erro in sugestoes_erros %}<p><a href="{% url 'detalhes_erro_conhecido' erro.id %}">Erro: {{ erro.palavra_chave }}</a></p>{% endfor %}{% for procedimento in sugestoes_procedimentos %}<p><a href="{% url 'detalhes_procedimento' procedimento.id %}">Procedimento: {{ procedimento.titulo }}</a></p>{% endfor %}</div>{% endif %}
+
+        {% if not tarefa.encerrada and tarefa.area != 'relacionada' %}<div class="card-detalhe" id="encerramento"><h3>Encerramento guiado</h3><p>Registre o que foi feito para preservar o histórico e alimentar a base de conhecimento.</p><form method="post" action="{% url 'encerrar_tarefa' tarefa.id %}">{% csrf_token %}<label>Solução aplicada<textarea name="solucao_aplicada" required></textarea></label><label>Resultado final<textarea name="resultado_final" required></textarea></label><label>Causa raiz (opcional)<textarea name="causa_raiz"></textarea></label><label><input type="checkbox" name="cliente_notificado" required> Cliente notificado</label><label><input type="checkbox" name="sugerir_base_conhecimento"> Este caso deve virar erro conhecido ou procedimento</label><button class="btn btn-success" type="submit">Encerrar ticket</button></form></div>{% endif %}
+
         {% if is_admin %}
         <div class="card-detalhe">
-            <h3>👤 Atribuir Responsável</h3>
+            <h3><svg class="ui-icon"><use href="#nc-icon-user"></use></svg>Atribuir Responsável</h3>
             <form method="post">
                 {% csrf_token %}
                 <select name="responsavel">
@@ -293,7 +313,7 @@
 
         {% if pode_editar %}
         <div class="card-detalhe">
-            <h3>✏️ Editar dados do ticket</h3>
+            <h3><svg class="ui-icon"><use href="#nc-icon-edit"></use></svg>Editar dados do ticket</h3>
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="editar_ticket" value="1">
@@ -359,3 +379,6 @@
     </div>
 </body>
 </html>
+
+
+

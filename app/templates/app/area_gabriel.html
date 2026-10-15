@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gabriel - NC Interno</title>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
     <style>
         .gabriel-page { max-width: 1500px; margin: 26px auto; padding: 0 20px 50px; }
         .private-heading { margin-bottom: 22px; }
@@ -74,7 +74,7 @@
     </style>
 </head>
 <body>
-    <header class="topo"><h2>🔒 Gabriel</h2></header>
+    <header class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-lock"></use></svg>Gabriel</h2></header>
     {% include 'app/base_nav_snippet.html' %}
     <main class="gabriel-page">
         <div class="private-heading private-heading-row"><div><h1>Minha organização</h1><p>Tickets da NetCamp sincronizados e lembretes pessoais em um único lugar.</p></div><details class="pin-settings"><summary>Alterar PIN</summary><form method="post">{% csrf_token %}<input type="hidden" name="alterar_pin" value="1"><label>PIN atual</label><input type="password" name="pin_atual" inputmode="numeric" minlength="4" maxlength="8" required><label>Novo PIN</label><input type="password" name="novo_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required><label>Confirmar novo PIN</label><input type="password" name="confirmar_pin" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required><button class="btn" type="submit">Salvar novo PIN</button></form></details></div>
@@ -82,7 +82,7 @@
 
         <div class="private-columns">
         <section class="private-section">
-            <div class="private-section-head"><div><h2>🛠 NetCamp</h2><p>Tickets técnicos atribuídos a você</p></div><a class="btn" href="{% url 'criar_tarefa' %}">+ Novo ticket</a></div>
+            <div class="private-section-head"><div><h2><svg class="ui-icon"><use href="#nc-icon-tool"></use></svg>NetCamp</h2><p>Tickets técnicos atribuídos a você</p></div><a class="btn" href="{% url 'criar_tarefa' %}">Novo ticket</a></div>
             <div class="netcamp-queue">
                         {% for ticket in tickets_netcamp %}
                         <article class="card prioridade-{{ ticket.prioridade }}">
@@ -98,7 +98,7 @@
                         {% empty %}<p class="search-empty">Você não possui tickets técnicos pendentes.</p>{% endfor %}
             </div>
             <div class="simple-list" style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border, #d6deea);">
-                <h3>✅ Tarefas rápidas NetCamp</h3><p>Checklist para atividades simples que não precisam de ticket</p>
+                <h3><svg class="ui-icon"><use href="#nc-icon-check"></use></svg>Tarefas rápidas NetCamp</h3><p>Checklist para atividades simples que não precisam de ticket</p>
                 <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="netcamp"><input name="titulo" placeholder="Nova tarefa rápida" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
                 <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
                 {% for item in tarefas_netcamp %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa rápida cadastrada.</p>{% endfor %}
@@ -106,20 +106,20 @@
         </section>
 
         <section class="private-section simple-list">
-                <h2>🍜 Casa do Yakisoba</h2><p>Checklist de tarefas do restaurante</p>
+                <h2><svg class="ui-icon"><use href="#nc-icon-note"></use></svg>Casa do Yakisoba</h2><p>Checklist de tarefas do restaurante</p>
                     <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="casa_yakisoba"><input name="titulo" placeholder="Nova tarefa" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
                     <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
                     {% for item in tarefas_casa %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
         </section>
         <section class="private-section simple-list">
-                <h2>👤 Gabriel</h2><p>Checklist de lembretes pessoais</p>
+                <h2><svg class="ui-icon"><use href="#nc-icon-user"></use></svg>Gabriel</h2><p>Checklist de lembretes pessoais</p>
                     <form method="post" class="simple-add">{% csrf_token %}<input type="hidden" name="criar_tarefa_pessoal" value="1"><input type="hidden" name="area" value="gabriel"><input name="titulo" placeholder="Novo lembrete" required><input type="date" name="data_conclusao" title="Opcional: sem data, será definida para daqui a 3 dias"><select name="prioridade" aria-label="Prioridade"><option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option></select><button class="btn" type="submit">Adicionar</button></form>
                     <small class="date-default-hint">Se deixar a data vazia, será definida para daqui a 3 dias.</small>
                     {% for item in tarefas_gabriel %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa cadastrada.</p>{% endfor %}
         </section>
         </div>
         <details class="archive-section">
-            <summary>🗃️ Arquivo de tarefas concluídas ({{ tarefas_arquivadas|length }})</summary>
+            <summary><svg class="ui-icon"><use href="#nc-icon-inbox"></use></svg>Arquivo de tarefas concluídas ({{ tarefas_arquivadas|length }})</summary>
             <div class="archive-list">
                 {% for item in tarefas_arquivadas %}{% include 'app/tarefa_pessoal_item.html' %}{% empty %}<p class="search-empty">Nenhuma tarefa arquivada.</p>{% endfor %}
             </div>
@@ -145,3 +145,6 @@
     </script>
 </body>
 </html>
+
+
+

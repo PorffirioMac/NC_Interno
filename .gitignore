@@ -8,3 +8,4 @@ venv/
 staticfiles/
 media/
 meusistema/settings_local.py
+.backups/

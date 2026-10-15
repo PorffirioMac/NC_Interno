@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,13 +21,13 @@
         table { width:100%; border-collapse:collapse; min-width:900px; } th,td { padding:14px 16px; text-align:left; border-bottom:1px solid #e8eaef; } th { background:#f6f8fb; }
         .vazio { text-align:center; color:#777; padding:30px; }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1"><script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3"><script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <div class="topo"><h2>💼 Comercial</h2></div>
+    <div class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-briefcase"></use></svg>Comercial</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
-        <div class="workspace-marker commercial">💼 Ambiente Comercial</div>
+        <div class="workspace-marker commercial"><svg class="ui-icon"><use href="#nc-icon-briefcase"></use></svg>Ambiente Comercial</div>
         <div class="actions"><h2>Atividades Comerciais</h2><div style="display:flex;gap:12px;align-items:center;">
             <div class="switch"><a class="btn btn-outline {% if view_mode == 'kanban' %}active{% endif %}" href="?view=kanban{% if fase_filtro %}&amp;fase={{ fase_filtro }}{% endif %}">Kanban</a><a class="btn btn-outline {% if view_mode == 'lista' %}active{% endif %}" href="?view=lista{% if fase_filtro %}&amp;fase={{ fase_filtro }}{% endif %}">Lista</a></div>
             <a class="btn" href="{% url 'criar_tarefa' %}?area=comercial">+ Nova Tarefa Comercial</a>
@@ -40,8 +40,8 @@
             {% for fase_key, fase_nome in fases.items %}<section class="coluna" data-fase="{{ fase_key }}"><h3>{{ fase_nome }}</h3>
                 {% for tarefa in tarefas %}{% if tarefa.fase == fase_key %}<article class="card prioridade-{{ tarefa.prioridade }}" draggable="true" data-mover-url="{% url 'mover_tarefa' tarefa.id %}" data-detalhes-url="{% url 'detalhes_tarefa' tarefa.id %}" role="link" tabindex="0" aria-label="Abrir ticket {{ tarefa.titulo }}">
                     <h4>{{ tarefa.titulo }}</h4><span class="priority-badge prioridade-{{ tarefa.prioridade }}">{{ tarefa.get_prioridade_display }}</span><p><strong>Cliente:</strong> {{ tarefa.cliente.nome_fantasia|default:'— Sem cliente —' }}</p><p>{{ tarefa.descricao|truncatewords:15 }}</p>
-                    <div class="meta"><span>👤 {{ tarefa.responsavel.username|default:'—' }}</span><span>📅 {{ tarefa.prazo|date:'d/m/Y'|default:'—' }}</span></div>
-                    <div class="meta"><span>💬 {% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:'d/m/Y H:i' }}{% else %}Nenhum comentário{% endif %}</span></div>
+                    <div class="meta"><span><svg class="ui-icon"><use href="#nc-icon-user"></use></svg>{{ tarefa.responsavel.username|default:'—' }}</span><span><svg class="ui-icon"><use href="#nc-icon-calendar"></use></svg>{{ tarefa.prazo|date:'d/m/Y'|default:'—' }}</span></div>
+                    <div class="meta"><span><svg class="ui-icon"><use href="#nc-icon-comment"></use></svg>{% if tarefa.ultima_atualizacao_comentario %}{{ tarefa.ultima_atualizacao_comentario|date:'d/m/Y H:i' }}{% else %}Nenhum comentário{% endif %}</span></div>
                     <div class="card-footer"><a href="{% url 'detalhes_tarefa' tarefa.id %}">Ver detalhes</a></div>
                 </article>{% endif %}{% endfor %}
             </section>{% endfor %}
@@ -63,3 +63,6 @@
     </script>
 </body>
 </html>
+
+
+

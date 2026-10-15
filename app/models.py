@@ -65,6 +65,9 @@ class Release(models.Model):
     versao = models.CharField('Versão', max_length=30)
     titulo = models.CharField('Título', max_length=200)
     conteudo = models.TextField('Releases e correções')
+    novidades = models.TextField('Novidades', blank=True)
+    correcoes = models.TextField('Correções', blank=True)
+    manual_operacional = models.TextField('Manual operacional', blank=True)
     publicado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='releases_publicados')
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -249,6 +252,33 @@ class Task(models.Model):
         blank=True,
         related_name='tarefas_acompanhadas',
     )
+    dependencias = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='tarefas_dependentes',
+    )
+    prazo_primeira_resposta = models.DateTimeField(null=True, blank=True)
+    primeira_resposta_em = models.DateTimeField(null=True, blank=True)
+    prazo_solucao = models.DateTimeField(null=True, blank=True)
+    pausado_desde = models.DateTimeField(null=True, blank=True)
+    motivo_pausa = models.CharField(
+        max_length=20,
+        choices=[
+            ('', 'Em andamento'),
+            ('cliente', 'Aguardando cliente'),
+            ('netcamp', 'Aguardando NetCamp'),
+            ('netcontroll', 'Aguardando Netcontroll'),
+        ],
+        blank=True,
+        default='',
+    )
+    tempo_pausado_segundos = models.PositiveBigIntegerField(default=0)
+    solucao_aplicada = models.TextField(blank=True)
+    resultado_final = models.TextField(blank=True)
+    causa_raiz = models.TextField(blank=True)
+    cliente_notificado = models.BooleanField(default=False)
+    sugerir_base_conhecimento = models.BooleanField(default=False)
     valor_mensalidade = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
     )
@@ -267,6 +297,44 @@ class Task(models.Model):
 
     def __str__(self):
         return f"[{self.get_fase_display()}] {self.titulo}"
+
+    @property
+    def bloqueada_por_dependencia(self):
+        return self.dependencias.filter(encerrada=False).exists()
+
+
+class ModeloProcesso(models.Model):
+    nome = models.CharField(max_length=180, unique=True)
+    descricao = models.TextField(blank=True)
+    ativo = models.BooleanField(default=True)
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
+class EtapaModeloProcesso(models.Model):
+    modelo = models.ForeignKey(ModeloProcesso, on_delete=models.CASCADE, related_name='etapas')
+    titulo = models.CharField(max_length=250)
+    descricao = models.TextField(blank=True)
+    ordem = models.PositiveSmallIntegerField(default=1)
+    prazo_dias = models.PositiveSmallIntegerField(default=1)
+    prioridade = models.CharField(
+        max_length=20,
+        choices=[('baixa', 'Baixa'), ('media', 'Média'), ('alta', 'Alta'), ('urgente', 'Urgente')],
+        default='media',
+    )
+    bloqueia_proxima = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return f'{self.modelo}: {self.titulo}'
 
 class ChecklistItem(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='checklists')

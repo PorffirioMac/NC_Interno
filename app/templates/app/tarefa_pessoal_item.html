@@ -1,7 +1,7 @@
 <div class="simple-task {% if item.concluida %}done{% elif item.data_conclusao < hoje %}overdue{% endif %}">
     {% if not item.concluida %}
-    <form method="post" action="{% url 'concluir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="check-button" type="submit" title="Concluir">☐</button></form>
-    {% else %}<span aria-label="Concluída">☑</span>{% endif %}
+    <form method="post" action="{% url 'concluir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="check-button" type="submit" title="Concluir"><span class="status-symbol pending"></span></button></form>
+    {% else %}<span aria-label="Concluída" class="status-symbol done"></span>{% endif %}
     <div><button type="button" class="task-history-open" data-dialog="historico-{{ item.id }}">{{ item.titulo }}</button><small>{% if item.concluida %}Concluída{% else %}Conclusão: {{ item.data_conclusao|date:'d/m/Y' }}{% endif %} · <span class="priority-badge prioridade-{{ item.prioridade }}">{{ item.get_prioridade_display }}</span> · {{ item.comentarios.count }} comentário{{ item.comentarios.count|pluralize }}</small></div>
     {% if item.concluida %}<form method="post" action="{% url 'reabrir_tarefa_pessoal' item.id %}">{% csrf_token %}<button class="reopen-button" type="submit">Reabrir</button></form>{% endif %}
 </div>

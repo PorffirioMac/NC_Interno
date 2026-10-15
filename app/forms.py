@@ -135,10 +135,24 @@ class SugestaoDesenvolvimentoForm(forms.ModelForm):
 
 
 class ReleaseForm(forms.ModelForm):
+    conteudo = forms.CharField(required=False, widget=forms.HiddenInput())
+
     class Meta:
         model = Release
-        fields = ['versao', 'titulo', 'conteudo']
-        widgets = {'conteudo': forms.Textarea(attrs={'rows': 8})}
+        fields = ['versao', 'titulo', 'novidades', 'correcoes', 'manual_operacional', 'conteudo']
+        widgets = {
+            'novidades': forms.Textarea(attrs={'rows': 7, 'placeholder': 'Liste as novas funções desta versão.'}),
+            'correcoes': forms.Textarea(attrs={'rows': 5, 'placeholder': 'Liste as correções realizadas.'}),
+            'manual_operacional': forms.Textarea(attrs={'rows': 10, 'placeholder': 'Explique à equipe como utilizar os novos fluxos.'}),
+        }
+
+    def clean(self):
+        dados = super().clean()
+        if dados.get('conteudo') and not dados.get('novidades'):
+            dados['novidades'] = dados['conteudo']
+        if not dados.get('novidades') and not dados.get('correcoes'):
+            raise forms.ValidationError('Informe ao menos uma novidade ou correção.')
+        return dados
 
 
 class SolicitacaoReleaseForm(forms.ModelForm):

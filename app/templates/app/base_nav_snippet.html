@@ -1,6 +1,34 @@
 {% load static notificacoes_tags %}
 {% caixa_nao_lidas as total_caixa_nao_lidas %}
 {% with pagina=request.resolver_match.url_name %}
+<svg class="nav-icon-sprite" aria-hidden="true">
+    <symbol id="nc-icon-dashboard" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></symbol>
+    <symbol id="nc-icon-calendar" viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M3.5 9h17M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></symbol>
+    <symbol id="nc-icon-ticket" viewBox="0 0 24 24"><path d="M4 5h16v5a2 2 0 0 0 0 4v5H4v-5a2 2 0 0 0 0-4V5Zm6 3v8"/></symbol>
+    <symbol id="nc-icon-check" viewBox="0 0 24 24"><path d="M4 12.5 9 17l11-11M4 5h6M4 20h16"/></symbol>
+    <symbol id="nc-icon-clients" viewBox="0 0 24 24"><path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6M2 21v-3a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v3m2-8a5 5 0 0 1 6 5v3"/></symbol>
+    <symbol id="nc-icon-book" viewBox="0 0 24 24"><path d="M4 4h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H4V4Zm16 0h-4a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h4V4Z"/></symbol>
+    <symbol id="nc-icon-alert" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Zm0 6v5m0 3v.1"/></symbol>
+    <symbol id="nc-icon-idea" viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 15a7 7 0 1 1 8 0c-1 .7-1 1.5-1 3H9c0-1.5 0-2.3-1-3Z"/></symbol>
+    <symbol id="nc-icon-briefcase" viewBox="0 0 24 24"><path d="M3 8h18v12H3V8Zm6 0V4h6v4m-12 4c5 3 13 3 18 0M12 12v3"/></symbol>
+    <symbol id="nc-icon-finance" viewBox="0 0 24 24"><path d="M12 2v20m5-16H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H7"/></symbol>
+    <symbol id="nc-icon-inbox" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4Zm0 10h5l2 3h2l2-3h5"/></symbol>
+    <symbol id="nc-icon-rocket" viewBox="0 0 24 24"><path d="M14 4c3-2 6-2 6-2s0 3-2 6l-6 6-5-5 7-5Zm-7 7-3 1-2 4 5-1m6 2-1 5 4-2 1-3M8 16l-3 3"/></symbol>
+    <symbol id="nc-icon-lock" viewBox="0 0 24 24"><path d="M6 10h12v11H6V10Zm3 0V7a3 3 0 0 1 6 0v3m-3 4v3"/></symbol>
+    <symbol id="nc-icon-search" viewBox="0 0 24 24"><path d="m21 21-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"/></symbol>
+    <symbol id="nc-icon-link" viewBox="0 0 24 24"><path d="m10 14 4-4m-7 7-2 2a3 3 0 0 1-4-4l4-4a3 3 0 0 1 4 0m8-4 2-2a3 3 0 0 1 4 4l-4 4a3 3 0 0 1-4 0"/></symbol>
+    <symbol id="nc-icon-tool" viewBox="0 0 24 24"><path d="M14 6a5 5 0 0 0-7-4l3 3-4 4-3-3a5 5 0 0 0 6 7l7 7a3 3 0 0 0 4-4l-7-7a5 5 0 0 0 1-3Z"/></symbol>
+    <symbol id="nc-icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 12h4"/></symbol>
+    <symbol id="nc-icon-clock" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-13v5l3 2"/></symbol>
+    <symbol id="nc-icon-note" viewBox="0 0 24 24"><path d="M5 3h14v18H5V3Zm4 5h6m-6 4h6m-6 4h4"/></symbol>
+    <symbol id="nc-icon-support" viewBox="0 0 24 24"><path d="M4 13v-2a8 8 0 0 1 16 0v2M4 12H2v6h4v-6H4Zm16 0h2v6h-4v-6h2Zm0 6c0 2-2 3-5 3"/></symbol>
+    <symbol id="nc-icon-comment" viewBox="0 0 24 24"><path d="M4 4h16v13H9l-5 4V4Z"/></symbol>
+    <symbol id="nc-icon-attachment" viewBox="0 0 24 24"><path d="m8 12 6-6a4 4 0 0 1 6 6l-8 8a6 6 0 0 1-8-8l8-8"/></symbol>
+    <symbol id="nc-icon-edit" viewBox="0 0 24 24"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4ZM14 7l3 3"/></symbol>
+    <symbol id="nc-icon-user" viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM3 22a9 9 0 0 1 18 0"/></symbol>
+    <symbol id="nc-icon-sun" viewBox="0 0 24 24"><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-14v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="nc-icon-moon" viewBox="0 0 24 24"><path d="M20 15a8 8 0 0 1-11-11 9 9 0 1 0 11 11Z"/></symbol>
+</svg>
 <button type="button" class="sidebar-mobile-toggle" aria-controls="appSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
 <nav class="app-nav app-sidebar" id="appSidebar" aria-label="Menu principal">
     <a class="app-brand" href="{% url 'dashboard' %}" aria-label="Ir para o Dashboard" title="NetCamp">
@@ -10,36 +38,34 @@
     </a>
     <div class="app-nav-scroll">
         <span class="nav-section-label">Visão geral</span>
-        <a href="{% url 'dashboard' %}" {% if pagina == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
-        <a href="{% url 'calendario' %}" {% if pagina == 'calendario' %}class="active"{% endif %}>📅 Calendário</a>
+        <a href="{% url 'dashboard' %}" data-label="Dashboard" {% if pagina == 'dashboard' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-dashboard"></use></svg><span class="nav-label">Dashboard</span></a>
+        <a href="{% url 'calendario' %}" data-label="Calendário" {% if pagina == 'calendario' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-calendar"></use></svg><span class="nav-label">Calendário</span></a>
 
         <span class="nav-section-label">Operação</span>
-        <a href="{% url 'tarefas' %}" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' or pagina == 'criar_tarefa_relacionada' %}class="active"{% endif %}>📋 Tickets</a>
-        <a href="{% url 'rotina' %}" {% if pagina == 'rotina' %}class="active"{% endif %}>✅ Rotina</a>
-        <a href="{% url 'clientes' %}" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}>🏢 Clientes</a>
-        <a href="{% url 'procedimentos_internos' %}" {% if pagina == 'procedimentos_internos' or pagina == 'criar_procedimento' or pagina == 'editar_procedimento' or pagina == 'detalhes_procedimento' %}class="active"{% endif %}>📚 Procedimentos</a>
-        <a href="{% url 'erros_conhecidos' %}" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}>⚠️ Erros Conhecidos</a>
-        <a href="{% url 'sugestoes_desenvolvimento' %}" {% if pagina == 'sugestoes_desenvolvimento' or pagina == 'criar_sugestao_desenvolvimento' or pagina == 'editar_sugestao_desenvolvimento' or pagina == 'detalhes_sugestao_desenvolvimento' %}class="active"{% endif %}>💡 Sugestões</a>
+        <a href="{% url 'tarefas' %}" data-label="Tickets" {% if pagina == 'tarefas' or pagina == 'tarefas_encerradas' or pagina == 'criar_tarefa' and area != 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area != 'comercial' or pagina == 'criar_tarefa_relacionada' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-ticket"></use></svg><span class="nav-label">Tickets</span></a>
+        <a href="{% url 'meu_trabalho' %}" data-label="Meu Trabalho" {% if pagina == 'meu_trabalho' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-check"></use></svg><span class="nav-label">Meu Trabalho</span></a>
+        <a href="{% url 'rotina' %}" data-label="Rotina" {% if pagina == 'rotina' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-check"></use></svg><span class="nav-label">Rotina</span></a>
+        <a href="{% url 'clientes' %}" data-label="Clientes" {% if pagina == 'clientes' or pagina == 'criar_cliente' or pagina == 'detalhes_cliente' or pagina == 'clientes_inativos' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-clients"></use></svg><span class="nav-label">Clientes</span></a>
+        <a href="{% url 'procedimentos_internos' %}" data-label="Procedimentos" {% if pagina == 'procedimentos_internos' or pagina == 'criar_procedimento' or pagina == 'editar_procedimento' or pagina == 'detalhes_procedimento' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-book"></use></svg><span class="nav-label">Procedimentos</span></a>
+        <a href="{% url 'erros_conhecidos' %}" data-label="Erros Conhecidos" {% if pagina == 'erros_conhecidos' or pagina == 'criar_erro_conhecido' or pagina == 'editar_erro_conhecido' or pagina == 'detalhes_erro_conhecido' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-alert"></use></svg><span class="nav-label">Erros Conhecidos</span></a>
+        <a href="{% url 'sugestoes_desenvolvimento' %}" data-label="Sugestões" {% if pagina == 'sugestoes_desenvolvimento' or pagina == 'criar_sugestao_desenvolvimento' or pagina == 'editar_sugestao_desenvolvimento' or pagina == 'detalhes_sugestao_desenvolvimento' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-idea"></use></svg><span class="nav-label">Sugestões</span></a>
 
         <span class="nav-section-label">Gestão</span>
-        <a href="{% url 'comercial' %}" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}>💼 Comercial</a>
-        {% if perms.app.acessar_financeiro %}<a href="{% url 'financeiro' %}" {% if pagina == 'financeiro' %}class="active"{% endif %}>💰 Financeiro</a>{% endif %}
-        <a href="{% url 'caixa_entrada' %}" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}>📥 Caixa de Entrada{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
-        <a href="{% url 'releases' %}" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}>🚀 Releases</a>
-        {% if request.user.username == 'gabriel.porfirio' %}<a href="{% url 'area_gabriel' %}" {% if pagina == 'area_gabriel' %}class="active"{% endif %}>🔒 Gabriel</a>{% endif %}
+        <a href="{% url 'comercial' %}" data-label="Comercial" {% if pagina == 'comercial' or pagina == 'criar_tarefa' and area == 'comercial' or pagina == 'detalhes_tarefa' and tarefa.area == 'comercial' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-briefcase"></use></svg><span class="nav-label">Comercial</span></a>
+        {% if perms.app.acessar_financeiro %}<a href="{% url 'financeiro' %}" data-label="Financeiro" {% if pagina == 'financeiro' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-finance"></use></svg><span class="nav-label">Financeiro</span></a>{% endif %}
+        <a href="{% url 'caixa_entrada' %}" data-label="Caixa de Entrada" {% if pagina == 'caixa_entrada' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-inbox"></use></svg><span class="nav-label">Caixa de Entrada</span>{% if total_caixa_nao_lidas %}<span class="nav-unread-badge">{{ total_caixa_nao_lidas }}</span>{% endif %}</a>
+        <a href="{% url 'releases' %}" data-label="Releases" {% if pagina == 'releases' or pagina == 'solicitacoes_releases' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-rocket"></use></svg><span class="nav-label">Releases</span></a>
+        {% if request.user.is_superuser %}<a href="{% url 'modelos_processos' %}" data-label="Modelos" {% if pagina == 'modelos_processos' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-note"></use></svg><span class="nav-label">Modelos</span></a>{% endif %}
+        {% if request.user.username == 'gabriel.porfirio' %}<a href="{% url 'area_gabriel' %}" data-label="Gabriel" {% if pagina == 'area_gabriel' %}class="active"{% endif %}><svg class="nav-icon"><use href="#nc-icon-lock"></use></svg><span class="nav-label">Gabriel</span></a>{% endif %}
     </div>
     <div class="app-nav-footer">
         <form class="global-search" action="{% url 'busca_global' %}" method="get" role="search">
             <span aria-hidden="true">⌕</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Busca global" aria-label="Buscar em todo o sistema" required>
         </form>
-        <div class="sidebar-footer-row"><span class="app-version">Versão 1.6.1</span><button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema">🌙</button></div>
+        <div class="sidebar-footer-row"><span class="app-version">Versão 1.6.2</span><button type="button" class="theme-toggle" title="Alternar tema" aria-label="Alternar tema"><svg class="ui-icon"><use href="#nc-icon-moon"></use></svg></button></div>
     </div>
 </nav>
-<button type="button" class="sidebar-desktop-toggle" aria-controls="appSidebar" aria-expanded="true" aria-label="Recolher menu" title="Recolher menu">‹</button>
-<a class="sidebar-collapsed-home" href="{% url 'dashboard' %}" aria-label="Ir para o Dashboard" title="Início">
-    <img class="logo-light" src="{% static 'app/images/netcamp-logo-blue.png' %}" alt="NetCamp">
-    <img class="logo-dark" src="{% static 'app/images/netcamp-logo-white.png' %}" alt="">
-</a>
+<button type="button" class="sidebar-desktop-toggle" aria-controls="appSidebar" aria-expanded="true" aria-label="Recolher menu" title="Recolher menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>
 <button type="button" class="sidebar-backdrop" aria-label="Fechar menu"></button>
 {% painel_notificacoes %}
 {% endwith %}

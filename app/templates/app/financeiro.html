@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -93,12 +93,12 @@
             .expense-table { min-width: 720px; }
         }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
     <header class="topo">
-        <h2>💰 Financeiro</h2>
+        <h2><svg class="ui-icon"><use href="#nc-icon-finance"></use></svg>Financeiro</h2>
         <span>{{ user.get_full_name|default:user.username }}</span>
     </header>
     {% include 'app/base_nav_snippet.html' %}
@@ -119,6 +119,13 @@
             </div>
         </div>
 
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:22px;">
+            <div class="finance-total"><span>Despesas mensais</span><strong>R$ {{ total_mensal|floatformat:2 }}</strong></div>
+            <div class="finance-total"><span>Créditos disponíveis</span><strong>R$ {{ total_creditos_disponiveis|floatformat:2 }}</strong></div>
+            <div class="finance-total"><span>Protestos em aberto ({{ quantidade_protestos_abertos }})</span><strong>R$ {{ total_protestos_abertos|floatformat:2 }}</strong></div>
+            <div class="finance-total"><span>Cobranças pendentes</span><strong>{{ novas_cobrancas_abertas|add:alteracoes_cobranca_abertas }}</strong></div>
+        </div>
+
         <details class="expense-compose card-detalhe" {% if form.errors %}open{% endif %}>
             <summary>＋ Cadastrar despesa recorrente</summary>
             <form method="post" class="expense-form">
@@ -134,6 +141,9 @@
             </form>
         </details>
 
+        <details class="finance-panel finance-calendar-panel card-detalhe" open>
+            <summary class="finance-panel-summary"><span><strong>Calendário financeiro</strong><small>Visão semanal e mensal das despesas</small></span><span class="finance-panel-chevron">⌄</span></summary>
+            <div class="finance-panel-body">
         <div class="section-title">
             <h2>Semana atual</h2>
             <span>{{ week_start|date:"d/m/Y" }} – {{ week_end|date:"d/m/Y" }}</span>
@@ -171,9 +181,12 @@
                 {% endfor %}{% endfor %}
             </div>
         </section>
+            </div>
+        </details>
 
-        <section class="expense-list card-detalhe">
-            <h2>Despesas cadastradas</h2>
+        <details class="expense-list card-detalhe finance-panel" open>
+            <summary class="finance-panel-summary"><span><strong>Despesas cadastradas</strong><small>{{ despesas|length }} registro{{ despesas|length|pluralize }}</small></span><span class="finance-panel-chevron">⌄</span></summary>
+            <div class="finance-panel-body">
             <table class="expense-table">
                 <thead><tr><th>Despesa</th><th>Valor mensal</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead>
                 <tbody>
@@ -193,19 +206,19 @@
                     {% endfor %}
                 </tbody>
             </table>
-        </section>
+            </div>
+        </details>
 
-        <section class="credit-section card-detalhe">
-            <div class="credit-heading">
-                <div>
-                    <h2>Créditos Netcontroll</h2>
-                    <p>Royalties já pagos que podem ser utilizados em novos boletos.</p>
-                </div>
+        <details class="credit-section card-detalhe finance-panel">
+            <summary class="finance-panel-summary">
+                <span><strong>Créditos Netcontroll</strong><small>Royalties pagos disponíveis para novos boletos</small></span>
                 <div class="credit-total">
                     <span>Total disponível</span>
                     <strong>R$ {{ total_creditos_disponiveis|floatformat:2 }}</strong>
                 </div>
-            </div>
+                <span class="finance-panel-chevron">⌄</span>
+            </summary>
+            <div class="finance-panel-body">
 
             <form method="post" class="credit-form">
                 {% csrf_token %}
@@ -233,13 +246,14 @@
                     <thead><tr><th>Valor</th><th>Origem</th><th>Utilizado?</th><th>Boleto utilizado</th><th>Ações</th></tr></thead>
                     <tbody>
                         {% for credito in creditos %}
-                        <tr>
-                            <td><input class="credit-inline-input credit-inline-value" form="credito-inline-{{ credito.id }}" type="text" inputmode="decimal" name="valor" value="{{ credito.valor }}" aria-label="Valor do crédito"></td>
-                            <td><input class="credit-inline-input credit-inline-origin" form="credito-inline-{{ credito.id }}" type="text" name="origem" value="{{ credito.origem }}" aria-label="Origem do crédito"></td>
-                            <td><label class="credit-inline-status"><input form="credito-inline-{{ credito.id }}" type="checkbox" name="utilizado" {% if credito.utilizado %}checked{% endif %}> Utilizado</label></td>
-                            <td><input class="credit-inline-input" form="credito-inline-{{ credito.id }}" type="text" name="boleto_utilizado" value="{{ credito.boleto_utilizado }}" placeholder="Informe ao utilizar" aria-label="Boleto utilizado"></td>
+                        <tr class="inline-edit-row">
+                            <td><span class="inline-edit-display"><strong>R$ {{ credito.valor|floatformat:2 }}</strong></span><input class="credit-inline-input credit-inline-value inline-edit-control" form="credito-inline-{{ credito.id }}" type="text" inputmode="decimal" name="valor" value="{{ credito.valor }}" aria-label="Valor do crédito"></td>
+                            <td><span class="inline-edit-display">{{ credito.origem }}</span><input class="credit-inline-input credit-inline-origin inline-edit-control" form="credito-inline-{{ credito.id }}" type="text" name="origem" value="{{ credito.origem }}" aria-label="Origem do crédito"></td>
+                            <td><span class="inline-edit-display {% if credito.utilizado %}status-used{% else %}status-available{% endif %}">{% if credito.utilizado %}Utilizado{% else %}Disponível{% endif %}</span><label class="credit-inline-status inline-edit-control"><input form="credito-inline-{{ credito.id }}" type="checkbox" name="utilizado" {% if credito.utilizado %}checked{% endif %}> Utilizado</label></td>
+                            <td><span class="inline-edit-display">{{ credito.boleto_utilizado|default:"—" }}</span><input class="credit-inline-input inline-edit-control" form="credito-inline-{{ credito.id }}" type="text" name="boleto_utilizado" value="{{ credito.boleto_utilizado }}" placeholder="Informe ao utilizar" aria-label="Boleto utilizado"></td>
                             <td class="expense-actions">
-                                <button class="btn btn-muted" form="credito-inline-{{ credito.id }}" type="submit">Salvar</button>
+                                <button class="btn btn-muted inline-edit-toggle" type="button">Editar</button>
+                                <button class="btn inline-edit-save inline-edit-control" form="credito-inline-{{ credito.id }}" type="submit">Salvar</button>
                                 <form method="post">{% csrf_token %}<input type="hidden" name="remover_credito" value="1"><input type="hidden" name="credito_id" value="{{ credito.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover este crédito?')">Remover</button></form>
                             </td>
                         </tr>
@@ -249,15 +263,12 @@
                     </tbody>
                 </table>
             </div>
-        </section>
-
-        <section class="protest-section card-detalhe">
-            <div class="credit-heading">
-                <div>
-                    <h2>Clientes Protestados</h2>
-                    <p>Controle dos boletos protestados e das respectivas baixas.</p>
-                </div>
             </div>
+        </details>
+
+        <details class="protest-section card-detalhe finance-panel">
+            <summary class="finance-panel-summary"><span><strong>Clientes Protestados</strong><small>{{ protestos|length }} registro{{ protestos|length|pluralize }} para controle e baixa</small></span><span class="finance-panel-chevron">⌄</span></summary>
+            <div class="finance-panel-body">
 
             <form method="post" class="credit-form">
                 {% csrf_token %}
@@ -286,18 +297,20 @@
                     <thead><tr><th>Cliente</th><th>Data do boleto</th><th>Valor</th><th>Pago?</th><th>Data da baixa</th><th>Ações</th></tr></thead>
                     <tbody>
                         {% for protesto in protestos %}
-                        <tr>
+                        <tr class="inline-edit-row">
                             <td>
-                                <select class="credit-inline-input credit-inline-origin" form="protesto-inline-{{ protesto.id }}" name="cliente" aria-label="Cliente protestado">
+                                <span class="inline-edit-display"><strong>{{ protesto.cliente.nome_fantasia }}</strong></span>
+                                <select class="credit-inline-input credit-inline-origin inline-edit-control" form="protesto-inline-{{ protesto.id }}" name="cliente" aria-label="Cliente protestado">
                                     {% for cliente in clientes_financeiro %}<option value="{{ cliente.id }}" {% if cliente.id == protesto.cliente_id %}selected{% endif %}>{{ cliente.nome_fantasia }}</option>{% endfor %}
                                 </select>
                             </td>
-                            <td><input class="credit-inline-input" form="protesto-inline-{{ protesto.id }}" type="date" name="data_boleto" value="{{ protesto.data_boleto|date:'Y-m-d' }}" aria-label="Data do boleto"></td>
-                            <td><input class="credit-inline-input credit-inline-value" form="protesto-inline-{{ protesto.id }}" type="text" inputmode="decimal" name="valor" value="{{ protesto.valor }}" aria-label="Valor do boleto"></td>
-                            <td><label class="credit-inline-status"><input form="protesto-inline-{{ protesto.id }}" type="checkbox" name="pago" {% if protesto.pago %}checked{% endif %}> Pago</label></td>
-                            <td><input class="credit-inline-input" form="protesto-inline-{{ protesto.id }}" type="date" name="data_pagamento" value="{% if protesto.data_pagamento %}{{ protesto.data_pagamento|date:'Y-m-d' }}{% endif %}" aria-label="Data da baixa"></td>
+                            <td><span class="inline-edit-display">{{ protesto.data_boleto|date:'d/m/Y' }}</span><input class="credit-inline-input inline-edit-control" form="protesto-inline-{{ protesto.id }}" type="date" name="data_boleto" value="{{ protesto.data_boleto|date:'Y-m-d' }}" aria-label="Data do boleto"></td>
+                            <td><span class="inline-edit-display"><strong>R$ {{ protesto.valor|floatformat:2 }}</strong></span><input class="credit-inline-input credit-inline-value inline-edit-control" form="protesto-inline-{{ protesto.id }}" type="text" inputmode="decimal" name="valor" value="{{ protesto.valor }}" aria-label="Valor do boleto"></td>
+                            <td><span class="inline-edit-display {% if protesto.pago %}status-used{% else %}status-available{% endif %}">{% if protesto.pago %}Pago{% else %}Em aberto{% endif %}</span><label class="credit-inline-status inline-edit-control"><input form="protesto-inline-{{ protesto.id }}" type="checkbox" name="pago" {% if protesto.pago %}checked{% endif %}> Pago</label></td>
+                            <td><span class="inline-edit-display">{% if protesto.data_pagamento %}{{ protesto.data_pagamento|date:'d/m/Y' }}{% else %}—{% endif %}</span><input class="credit-inline-input inline-edit-control" form="protesto-inline-{{ protesto.id }}" type="date" name="data_pagamento" value="{% if protesto.data_pagamento %}{{ protesto.data_pagamento|date:'Y-m-d' }}{% endif %}" aria-label="Data da baixa"></td>
                             <td class="expense-actions">
-                                <button class="btn btn-muted" form="protesto-inline-{{ protesto.id }}" type="submit">Salvar</button>
+                                <button class="btn btn-muted inline-edit-toggle" type="button">Editar</button>
+                                <button class="btn inline-edit-save inline-edit-control" form="protesto-inline-{{ protesto.id }}" type="submit">Salvar</button>
                                 <form method="post">{% csrf_token %}<input type="hidden" name="remover_protesto" value="1"><input type="hidden" name="protesto_id" value="{{ protesto.id }}"><button class="btn btn-danger" type="submit" onclick="return confirm('Remover este registro de protesto?')">Remover</button></form>
                             </td>
                         </tr>
@@ -307,8 +320,12 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+            </div>
+        </details>
 
     </main>
 </body>
 </html>
+
+
+

@@ -1,22 +1,22 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Releases - NC Interno</title>
     <style>
-        *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif}.topo{color:white;padding:16px 32px}.container{max-width:1250px;margin:28px auto;padding:0 20px}.grid{display:grid;grid-template-columns:1.35fr .85fr;gap:22px}.painel,.release,.solicitacao{background:white;border-radius:14px;padding:24px;margin-bottom:18px}.painel h2,.release h2{margin-bottom:16px}.campo{margin-bottom:14px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo select,.campo textarea{width:100%;padding:11px 12px;border:1px solid #ccd6e4;border-radius:8px;font:inherit}.btn{display:inline-block;background:#1769d2;color:white;border:0;border-radius:8px;padding:10px 16px;text-decoration:none;cursor:pointer;font-weight:600}.btn-admin{background:#5b3fc4}.release-head{display:flex;justify-content:space-between;gap:15px;align-items:start;margin-bottom:14px}.versao{background:#dceaff;color:#1769d2;padding:6px 11px;border-radius:16px;font-weight:700}.meta{font-size:12px;color:#77849a;margin-top:8px}.conteudo{line-height:1.65}.mensagem{padding:12px 16px;background:#d9f4e3;color:#176b38;border-radius:8px;margin-bottom:16px}.status{display:inline-block;padding:4px 9px;border-radius:14px;font-size:12px;font-weight:700}.pendente{background:#fff0c2;color:#805d00}.feito{background:#d6f5df;color:#176b38}.comentario{padding:10px 12px;margin-top:8px;background:#eef3f9;border-radius:8px;font-size:13px}.vazio{color:#77849a;padding:18px 0}@media(max-width:850px){.grid{grid-template-columns:1fr}}
+        *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif}.topo{color:white;padding:16px 32px}.container{max-width:1250px;margin:28px auto;padding:0 20px}.grid{display:grid;grid-template-columns:1.35fr .85fr;gap:22px}.painel,.release,.solicitacao{background:white;border-radius:14px;padding:24px;margin-bottom:18px}.painel h2,.release h2{margin-bottom:16px}.campo{margin-bottom:14px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo select,.campo textarea{width:100%;padding:11px 12px;border:1px solid #ccd6e4;border-radius:8px;font:inherit}.btn{display:inline-block;background:#1769d2;color:white;border:0;border-radius:8px;padding:10px 16px;text-decoration:none;cursor:pointer;font-weight:600}.btn-admin{background:#5b3fc4}.release-head{display:flex;justify-content:space-between;gap:15px;align-items:start;margin-bottom:14px}.versao{background:#dceaff;color:#1769d2;padding:6px 11px;border-radius:16px;font-weight:700}.meta{font-size:12px;color:#77849a;margin-top:8px}.conteudo{line-height:1.65}.release-block{padding:16px 0;border-top:1px solid var(--border)}.release-block h3{margin-bottom:9px;font-size:15px}.release-block.new h3{color:#1769d2}.release-block.fix h3{color:#188038}.release-manual{margin-top:8px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}.release-manual summary{padding:14px 16px;cursor:pointer;font-weight:750;color:var(--primary)}.release-manual .manual-body{padding:0 16px 16px;line-height:1.65}.mensagem{padding:12px 16px;background:#d9f4e3;color:#176b38;border-radius:8px;margin-bottom:16px}.status{display:inline-block;padding:4px 9px;border-radius:14px;font-size:12px;font-weight:700}.pendente{background:#fff0c2;color:#805d00}.feito{background:#d6f5df;color:#176b38}.comentario{padding:10px 12px;margin-top:8px;background:#eef3f9;border-radius:8px;font-size:13px}.vazio{color:#77849a;padding:18px 0}@media(max-width:850px){.grid{grid-template-columns:1fr}}
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1"><script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3"><script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <div class="topo"><h2>🚀 Releases</h2></div>
+    <div class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-rocket"></use></svg>Releases</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
         {% if messages %}{% for msg in messages %}<div class="mensagem">{{ msg }}</div>{% endfor %}{% endif %}
         <div class="grid">
             <section>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px"><h1>Histórico de versões</h1>{% if is_admin %}<a class="btn btn-admin" href="{% url 'solicitacoes_releases' %}">Solicitações pendentes ({{ pendentes_count }})</a>{% endif %}</div>
-                {% for release in releases %}<article class="release card"><div class="release-head"><div><h2>{{ release.titulo }}</h2><div class="meta">Publicado em {{ release.criado_em|date:'d/m/Y H:i' }}{% if release.publicado_por %} por {{ release.publicado_por.username }}{% endif %}</div></div><span class="versao">Versão {{ release.versao }}</span></div><div class="conteudo">{{ release.conteudo|linebreaks }}</div></article>{% empty %}<div class="painel vazio">Nenhum release publicado ainda.</div>{% endfor %}
+                {% for release in releases %}<article class="release card"><div class="release-head"><div><h2>{{ release.titulo }}</h2><div class="meta">Publicado em {{ release.criado_em|date:'d/m/Y H:i' }}{% if release.publicado_por %} por {{ release.publicado_por.username }}{% endif %}</div></div><span class="versao">Versão {{ release.versao }}</span></div>{% if release.novidades %}<section class="release-block new"><h3>Novidades</h3><div class="conteudo">{{ release.novidades|linebreaks }}</div></section>{% endif %}{% if release.correcoes %}<section class="release-block fix"><h3>Correções</h3><div class="conteudo">{{ release.correcoes|linebreaks }}</div></section>{% endif %}{% if release.manual_operacional %}<details class="release-manual" open><summary>Como utilizar esta versão</summary><div class="manual-body">{{ release.manual_operacional|linebreaks }}</div></details>{% elif release.conteudo and not release.novidades and not release.correcoes %}<div class="conteudo">{{ release.conteudo|linebreaks }}</div>{% endif %}</article>{% empty %}<div class="painel vazio">Nenhum release publicado ainda.</div>{% endfor %}
             </section>
             <aside>
                 {% if is_admin %}<div class="painel card"><h2>Publicar release</h2><form method="post">{% csrf_token %}<input type="hidden" name="publicar_release" value="1">{% for field in release_form %}<div class="campo"><label>{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small style="color:#b42318">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="btn" type="submit">Publicar</button></form></div>{% endif %}
@@ -27,3 +27,6 @@
     </main>
 </body>
 </html>
+
+
+

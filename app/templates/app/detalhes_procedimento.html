@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -34,11 +34,11 @@
         .mensagens li { background: #d4edda; color: #155724; padding: 10px 16px; border-radius: 8px; margin-bottom: 6px; }
         @media (max-width: 650px) { .card { padding: 24px; } .cabecalho { flex-direction: column; } .attachment-upload { min-width: 100%; } .attachment-item { grid-template-columns: auto 1fr; } .attachment-item form { grid-column: 2; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <div class="topo"><h2>📚 Procedimento Interno</h2></div>
+    <div class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-book"></use></svg>Procedimento Interno</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
         <a class="voltar" href="{% url 'procedimentos_internos' %}">← Voltar para a lista</a>
@@ -55,7 +55,7 @@
         </article>
         <section class="card">
             <div class="attachment-heading">
-                <div><h2>📎 Arquivos de apoio</h2><p>Documentos e materiais necessários para executar este procedimento.</p></div>
+                <div><h2><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg>Arquivos de apoio</h2><p>Documentos e materiais necessários para executar este procedimento.</p></div>
                 <form method="post" enctype="multipart/form-data" class="attachment-upload">
                     {% csrf_token %}
                     <input type="hidden" name="enviar_anexo" value="1">
@@ -67,7 +67,7 @@
             <div class="attachment-list">
                 {% for anexo in procedimento.anexos.all %}
                 <div class="attachment-item">
-                    <span>📄</span>
+                    <span><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg></span>
                     <div><a class="attachment-download" href="{% url 'baixar_anexo_procedimento' anexo.id %}">{{ anexo.nome_original }}</a><small>{{ anexo.tamanho|filesizeformat }} · {{ anexo.enviado_por.username|default:"Usuário removido" }} · {{ anexo.criado_em|date:"d/m/Y H:i" }}</small></div>
                     <form method="post" action="{% url 'remover_anexo_procedimento' anexo.id %}">{% csrf_token %}<button type="submit" class="attachment-remove" onclick="return confirm('Remover definitivamente este anexo?')">Remover</button></form>
                 </div>
@@ -77,3 +77,6 @@
     </main>
 </body>
 </html>
+
+
+

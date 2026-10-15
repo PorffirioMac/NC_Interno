@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -27,11 +27,11 @@
         .vazio { background: white; padding: 46px; text-align: center; border-radius: 14px; color: #777; }
         @media (max-width: 760px) { .procedure-grid { grid-template-columns: 1fr; } .busca { max-width: none; } }
     </style>
-    <link rel="stylesheet" href="/static/app/theme.css?v=20261014-1">
-    <script src="/static/app/theme.js?v=20261013-3"></script>
+    <link rel="stylesheet" href="/static/app/theme.css?v=20261015-3">
+    <script src="/static/app/theme.js?v=20261015-3"></script>
 </head>
 <body>
-    <div class="topo"><h2>📚 Procedimentos Internos</h2></div>
+    <div class="topo"><h2><svg class="ui-icon"><use href="#nc-icon-book"></use></svg>Procedimentos Internos</h2></div>
     {% include 'app/base_nav_snippet.html' %}
     <main class="container">
         <div class="intro">
@@ -52,7 +52,7 @@
                 <article class="card procedure-card">
                     <div class="procedure-head">
                         <h2>{{ procedimento.titulo }}</h2>
-                        <span class="attachment-count">📎 {{ procedimento.total_anexos }}</span>
+                        <span class="attachment-count"><svg class="ui-icon"><use href="#nc-icon-attachment"></use></svg>{{ procedimento.total_anexos }}</span>
                     </div>
                     <p class="procedure-preview">{{ procedimento.conteudo|striptags|truncatechars:190 }}</p>
                     <div class="procedure-meta">
@@ -69,3 +69,6 @@
     </main>
 </body>
 </html>
+
+
+

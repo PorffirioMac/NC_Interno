@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import Case, Count, F, IntegerField, Max, Q, Value, When
+from django.db.models import Case, Count, F, IntegerField, Max, Q, Sum, Value, When
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
@@ -30,7 +30,7 @@ from .models import (
     ClienteProtestado, CreditoMatriz, DespesaFinanceira, ErroConhecido,
     ProcedimentoInterno, Release, Rotina, RotinaConclusao,
     SolicitacaoRelease, SugestaoDesenvolvimento, Task, ChecklistItem, Comment,
-    Notificacao, TarefaPessoal,
+    Notificacao, TarefaPessoal, ModeloProcesso, EtapaModeloProcesso,
 )
 from .rotinas import periodo_referencia, rotinas_pendentes_usuario
 
@@ -89,9 +89,12 @@ def notificar_atribuicao(tarefa, destinatario, ator):
 
 
 def notificar_comentario(tarefa, ator):
+    destinatarios = list(tarefa.participantes.exclude(id=ator.id))
     if tarefa.responsavel and tarefa.responsavel != ator:
+        destinatarios.append(tarefa.responsavel)
+    for destinatario in {usuario.id: usuario for usuario in destinatarios}.values():
         Notificacao.objects.create(
-            destinatario=tarefa.responsavel,
+            destinatario=destinatario,
             ator=ator,
             tarefa=tarefa,
             tipo='comentario',
@@ -323,6 +326,11 @@ def releases(request):
         if release_form.is_valid():
             release = release_form.save(commit=False)
             release.publicado_por = request.user
+            release.conteudo = '\n\n'.join(filter(None, [
+                f"NOVIDADES\n{release.novidades}" if release.novidades else '',
+                f"CORREÇÕES\n{release.correcoes}" if release.correcoes else '',
+                f"MANUAL OPERACIONAL\n{release.manual_operacional}" if release.manual_operacional else '',
+            ]))
             release.save()
             publicar_comunicacao(
                 'release',
@@ -750,7 +758,18 @@ def detalhes_cliente(request, cliente_id):
         cliente.save(update_fields=['observacoes', 'atualizado_em'])
         messages.success(request, 'Observações do cliente atualizadas com sucesso!')
         return redirect('detalhes_cliente', cliente_id=cliente.id)
-    return render(request, 'app/detalhes_cliente.html', {'cliente': cliente})
+    eventos = []
+    tarefas_cliente = cliente.tarefas.select_related('responsavel').prefetch_related('comentarios__autor')
+    for tarefa in tarefas_cliente:
+        eventos.append({'data': tarefa.criado_em, 'tipo': 'Ticket criado', 'titulo': tarefa.titulo, 'tarefa': tarefa})
+        if tarefa.encerrado_em:
+            eventos.append({'data': tarefa.encerrado_em, 'tipo': 'Ticket encerrado', 'titulo': tarefa.titulo, 'tarefa': tarefa})
+        for comentario in tarefa.comentarios.all():
+            eventos.append({'data': comentario.criado_em, 'tipo': 'Comentário', 'titulo': comentario.texto, 'tarefa': tarefa, 'autor': comentario.autor})
+    for protesto in cliente.protestos.all():
+        eventos.append({'data': timezone.make_aware(datetime.combine(protesto.data_boleto, datetime.min.time())), 'tipo': 'Financeiro', 'titulo': f'Boleto protestado — R$ {protesto.valor}', 'protesto': protesto})
+    eventos.sort(key=lambda evento: evento['data'], reverse=True)
+    return render(request, 'app/detalhes_cliente.html', {'cliente': cliente, 'eventos': eventos})
 
 
 @login_required(login_url='/login/')
@@ -888,6 +907,13 @@ def dashboard(request):
         tarefas_para_hoje = Task.objects.filter(encerrada=False, area='tickets', prazo=hoje).count()
         tarefas_atrasadas = Task.objects.filter(encerrada=False, area='tickets', prazo__lt=hoje).count()
         minhas_tarefas = Task.objects.filter(encerrada=False, area='tickets', responsavel=request.user).count()
+        limite_parado = timezone.now() - timedelta(days=3)
+        gargalos = {
+            'sem_responsavel': Task.objects.filter(encerrada=False, responsavel__isnull=True).count(),
+            'sem_movimento': Task.objects.filter(encerrada=False, atualizado_em__lt=limite_parado).count(),
+            'sla_vencido': Task.objects.filter(encerrada=False, prazo_solucao__lt=timezone.now()).count(),
+            'bloqueados': Task.objects.filter(encerrada=False, dependencias__encerrada=False).distinct().count(),
+        }
         return render(request, 'app/dashboard.html', {
             'total_tarefas': total_tarefas,
             'tarefas_ativas': tarefas_ativas,
@@ -899,6 +925,7 @@ def dashboard(request):
             'status_counts': status_counts,
             'desempenho_usuarios': desempenho_usuarios,
             'inicio_semana': inicio_semana,
+            'gargalos': gargalos,
         })
     else:
         hoje = date.today()
@@ -1693,6 +1720,9 @@ def criar_tarefa(request):
             cliente=cliente,
             prazo=prazo,
         )
+        tarefa.participantes.set(
+            User.objects.filter(is_active=True, id__in=request.POST.getlist('participantes')).exclude(id=tarefa.responsavel_id)
+        )
         notificar_atribuicao(tarefa, tarefa.responsavel, request.user)
 
         checklists_padrao = {
@@ -1854,6 +1884,42 @@ def detalhes_tarefa(request, tarefa_id):
             if tarefa.responsavel_id != responsavel_anterior_id:
                 notificar_atribuicao(tarefa, tarefa.responsavel, request.user)
             messages.success(request, 'Responsável atualizado!')
+        elif 'salvar_participantes' in request.POST and (request.user.is_superuser or pode_editar):
+            participantes = User.objects.filter(
+                is_active=True, id__in=request.POST.getlist('participantes'),
+            ).exclude(id=tarefa.responsavel_id)
+            tarefa.participantes.set(participantes)
+            messages.success(request, 'Participantes atualizados!')
+        elif 'salvar_sla' in request.POST and (request.user.is_superuser or pode_editar):
+            def ler_data_hora(nome):
+                valor = request.POST.get(nome, '').strip()
+                if not valor:
+                    return None
+                resultado = datetime.fromisoformat(valor)
+                return timezone.make_aware(resultado) if timezone.is_naive(resultado) else resultado
+            try:
+                tarefa.prazo_primeira_resposta = ler_data_hora('prazo_primeira_resposta')
+                tarefa.prazo_solucao = ler_data_hora('prazo_solucao')
+            except ValueError:
+                messages.error(request, 'Informe datas de SLA válidas.')
+                return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+            novo_motivo = request.POST.get('motivo_pausa', '')
+            if novo_motivo not in dict(Task._meta.get_field('motivo_pausa').choices):
+                novo_motivo = ''
+            if tarefa.pausado_desde and not novo_motivo:
+                tarefa.tempo_pausado_segundos += int((timezone.now() - tarefa.pausado_desde).total_seconds())
+                tarefa.pausado_desde = None
+            elif novo_motivo and not tarefa.pausado_desde:
+                tarefa.pausado_desde = timezone.now()
+            tarefa.motivo_pausa = novo_motivo
+            tarefa.save(update_fields=['prazo_primeira_resposta', 'prazo_solucao', 'pausado_desde', 'motivo_pausa', 'tempo_pausado_segundos', 'atualizado_em'])
+            messages.success(request, 'SLA e andamento atualizados!')
+        elif 'salvar_dependencias' in request.POST and (request.user.is_superuser or pode_editar):
+            dependencias = Task.objects.filter(
+                id__in=request.POST.getlist('dependencias'), encerrada=False,
+            ).exclude(id=tarefa.id)
+            tarefa.dependencias.set(dependencias)
+            messages.success(request, 'Dependências atualizadas!')
         elif 'checklist' in request.POST:
             ChecklistItem.objects.create(
                 task=tarefa,
@@ -1866,6 +1932,9 @@ def detalhes_tarefa(request, tarefa_id):
                 autor=request.user,
                 texto=request.POST['texto'],
             )
+            if not tarefa.primeira_resposta_em:
+                tarefa.primeira_resposta_em = timezone.now()
+                tarefa.save(update_fields=['primeira_resposta_em', 'atualizado_em'])
             notificar_comentario(tarefa, request.user)
             messages.success(request, 'Comentário adicionado!')
         elif 'concluir_check' in request.POST:
@@ -1895,6 +1964,11 @@ def detalhes_tarefa(request, tarefa_id):
         'clientes': Cliente.objects.filter(
             Q(ativo=True) | Q(id=tarefa.cliente_id)
         ).distinct(),
+        'tarefas_para_dependencia': Task.objects.filter(encerrada=False).exclude(id=tarefa.id).order_by('titulo'),
+        'modelos_processos': ModeloProcesso.objects.filter(ativo=True).prefetch_related('etapas'),
+        'agora': timezone.now(),
+        'sugestoes_erros': ErroConhecido.objects.filter(modulo=tarefa.modulo)[:5] if tarefa.modulo else ErroConhecido.objects.none(),
+        'sugestoes_procedimentos': ProcedimentoInterno.objects.filter(Q(titulo__icontains=tarefa.get_modulo_display()) | Q(conteudo__icontains=tarefa.get_modulo_display()))[:5] if tarefa.modulo else ProcedimentoInterno.objects.none(),
     })
 
 
@@ -2208,6 +2282,10 @@ def financeiro(request):
         'total_creditos_disponiveis': sum(
             credito.valor for credito in creditos_disponiveis
         ),
+        'total_protestos_abertos': protestos.filter(pago=False).aggregate(total=Sum('valor'))['total'] or Decimal('0'),
+        'quantidade_protestos_abertos': protestos.filter(pago=False).count(),
+        'novas_cobrancas_abertas': Task.objects.filter(encerrada=False, fase='novas_cobrancas').count(),
+        'alteracoes_cobranca_abertas': Task.objects.filter(encerrada=False, tipo_disparo='cobranca').count(),
     })
 
 
@@ -2298,6 +2376,9 @@ def concluir_rotina(request, rotina_id):
 @login_required(login_url='/login/')
 def encerrar_tarefa(request, tarefa_id):
     tarefa = get_object_or_404(Task, id=tarefa_id)
+    if tarefa.dependencias.filter(encerrada=False).exists():
+        messages.error(request, 'Conclua primeiro as dependências deste ticket.')
+        return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
     pendencias_bloqueadoras = tarefa.tarefas_disparadas.filter(
         encerrada=False,
         bloqueia_encerramento=True,
@@ -2309,9 +2390,22 @@ def encerrar_tarefa(request, tarefa_id):
             f'Este ticket ainda possui tarefas relacionadas obrigatórias pendentes: {nomes}.',
         )
         return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
+    # A interface nova usa POST com histórico completo. O GET legado permanece
+    # compatível com atalhos antigos e integrações já existentes.
+    if tarefa.area != 'relacionada' and request.method == 'POST':
+        solucao = request.POST.get('solucao_aplicada', '').strip()
+        resultado = request.POST.get('resultado_final', '').strip()
+        if not solucao or not resultado or not request.POST.get('cliente_notificado'):
+            messages.error(request, 'Informe a solução, o resultado e confirme que o cliente foi notificado.')
+            return redirect(f"{reverse('detalhes_tarefa', args=[tarefa.id])}#encerramento")
+        tarefa.solucao_aplicada = solucao
+        tarefa.resultado_final = resultado
+        tarefa.causa_raiz = request.POST.get('causa_raiz', '').strip()
+        tarefa.cliente_notificado = True
+        tarefa.sugerir_base_conhecimento = bool(request.POST.get('sugerir_base_conhecimento'))
     tarefa.encerrada = True
     tarefa.encerrado_em = timezone.now()
-    tarefa.save(update_fields=['encerrada', 'encerrado_em', 'atualizado_em'])
+    tarefa.save()
     tarefa.notificacoes.filter(lida=False).update(lida=True)
     messages.success(
         request,
@@ -2321,6 +2415,78 @@ def encerrar_tarefa(request, tarefa_id):
     if tarefa.area == 'relacionada' and tarefa.origem_disparo_id:
         return redirect('detalhes_tarefa', tarefa_id=tarefa.origem_disparo_id)
     return redirect('tarefas_encerradas')
+
+
+@login_required(login_url='/login/')
+def meu_trabalho(request):
+    hoje = date.today()
+    tarefas = Task.objects.filter(encerrada=False).filter(
+        Q(responsavel=request.user) | Q(participantes=request.user)
+    ).select_related('cliente', 'responsavel').prefetch_related('dependencias').distinct()
+    grupos = {
+        'atrasadas': tarefas.filter(prazo__lt=hoje),
+        'hoje': tarefas.filter(prazo=hoje),
+        'proximas': tarefas.filter(prazo__gt=hoje).order_by('prazo'),
+        'sem_prazo': tarefas.filter(prazo__isnull=True),
+        'bloqueadas': tarefas.filter(dependencias__encerrada=False).distinct(),
+    }
+    return render(request, 'app/meu_trabalho.html', {
+        'grupos': grupos, 'total': tarefas.count(), 'hoje': hoje,
+    })
+
+
+@login_required(login_url='/login/')
+@require_POST
+def aplicar_modelo_processo(request, tarefa_id):
+    principal = get_object_or_404(Task, id=tarefa_id, encerrada=False)
+    if not (request.user.is_superuser or principal.responsavel_id == request.user.id):
+        raise PermissionDenied
+    modelo = get_object_or_404(ModeloProcesso, id=request.POST.get('modelo'), ativo=True)
+    anterior = None
+    criadas = []
+    for etapa in modelo.etapas.all():
+        relacionada = Task.objects.create(
+            titulo=etapa.titulo,
+            descricao=etapa.descricao,
+            area='relacionada', fase='tarefas_internas', status='pendente_netcamp',
+            prioridade=etapa.prioridade, responsavel=principal.responsavel,
+            cliente=principal.cliente, origem_disparo=principal,
+            tipo_disparo='tarefa_interna', prazo=date.today() + timedelta(days=etapa.prazo_dias),
+            bloqueia_encerramento=True,
+        )
+        relacionada.participantes.set(principal.participantes.all())
+        if anterior and etapa.bloqueia_proxima:
+            relacionada.dependencias.add(anterior)
+        anterior = relacionada
+        criadas.append(relacionada)
+    messages.success(request, f'Processo “{modelo.nome}” aplicado: {len(criadas)} tarefas criadas.')
+    return redirect('detalhes_tarefa', tarefa_id=principal.id)
+
+
+@login_required(login_url='/login/')
+def modelos_processos(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    if request.method == 'POST':
+        if 'criar_modelo' in request.POST:
+            nome = request.POST.get('nome', '').strip()
+            if nome:
+                ModeloProcesso.objects.get_or_create(nome=nome, defaults={'descricao': request.POST.get('descricao', '').strip(), 'criado_por': request.user})
+                messages.success(request, 'Modelo criado.')
+        elif 'criar_etapa' in request.POST:
+            modelo = get_object_or_404(ModeloProcesso, id=request.POST.get('modelo'))
+            titulo = request.POST.get('titulo', '').strip()
+            if titulo:
+                EtapaModeloProcesso.objects.create(
+                    modelo=modelo, titulo=titulo, descricao=request.POST.get('descricao', '').strip(),
+                    ordem=request.POST.get('ordem') or modelo.etapas.count() + 1,
+                    prazo_dias=request.POST.get('prazo_dias') or 1,
+                    prioridade=request.POST.get('prioridade', 'media'),
+                    bloqueia_proxima=bool(request.POST.get('bloqueia_proxima')),
+                )
+                messages.success(request, 'Etapa adicionada.')
+        return redirect('modelos_processos')
+    return render(request, 'app/modelos_processos.html', {'modelos': ModeloProcesso.objects.prefetch_related('etapas')})
 
 @login_required(login_url='/login/')
 def reabrir_tarefa(request, tarefa_id):
