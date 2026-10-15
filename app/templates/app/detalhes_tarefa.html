@@ -147,7 +147,7 @@
             <!-- BOTÃO DE ENCERRAR / REABRIR -->
             <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #eee; display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
                 {% if not tarefa.encerrada %}
-                <a href="#encerramento" class="btn" style="background: #28a745;">
+                <a href="{% url 'encerrar_tarefa' tarefa.id %}" class="btn" style="background: #28a745;" onclick="return confirm('Tem certeza que deseja encerrar este ticket?')">
                     {% if tarefa.area == 'relacionada' %}Concluir Tarefa{% else %}Encerrar Ticket{% endif %}
                 </a>
                 {% if tarefa.area == 'comercial' %}
@@ -292,8 +292,6 @@
         {% if not tarefa.encerrada and modelos_processos and tarefa.area != 'relacionada' %}<div class="card-detalhe"><h3>Disparar processo</h3><form method="post" action="{% url 'aplicar_modelo_processo' tarefa.id %}">{% csrf_token %}<select name="modelo" required><option value="">Selecione um modelo</option>{% for modelo in modelos_processos %}<option value="{{ modelo.id }}">{{ modelo.nome }} ({{ modelo.etapas.count }} etapas)</option>{% endfor %}</select><button class="btn">Criar tarefas do processo</button></form></div>{% endif %}
 
         {% if sugestoes_erros or sugestoes_procedimentos %}<div class="card-detalhe"><h3>Base de conhecimento relacionada</h3>{% for erro in sugestoes_erros %}<p><a href="{% url 'detalhes_erro_conhecido' erro.id %}">Erro: {{ erro.palavra_chave }}</a></p>{% endfor %}{% for procedimento in sugestoes_procedimentos %}<p><a href="{% url 'detalhes_procedimento' procedimento.id %}">Procedimento: {{ procedimento.titulo }}</a></p>{% endfor %}</div>{% endif %}
-
-        {% if not tarefa.encerrada and tarefa.area != 'relacionada' %}<div class="card-detalhe" id="encerramento"><h3>Encerramento guiado</h3><p>Registre o que foi feito para preservar o histórico e alimentar a base de conhecimento.</p><form method="post" action="{% url 'encerrar_tarefa' tarefa.id %}">{% csrf_token %}<label>Solução aplicada<textarea name="solucao_aplicada" required></textarea></label><label>Resultado final<textarea name="resultado_final" required></textarea></label><label>Causa raiz (opcional)<textarea name="causa_raiz"></textarea></label><label><input type="checkbox" name="cliente_notificado" required> Cliente notificado</label><label><input type="checkbox" name="sugerir_base_conhecimento"> Este caso deve virar erro conhecido ou procedimento</label><button class="btn btn-success" type="submit">Encerrar ticket</button></form></div>{% endif %}
 
         {% if is_admin %}
         <div class="card-detalhe">

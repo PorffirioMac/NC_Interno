@@ -2390,19 +2390,6 @@ def encerrar_tarefa(request, tarefa_id):
             f'Este ticket ainda possui tarefas relacionadas obrigatórias pendentes: {nomes}.',
         )
         return redirect('detalhes_tarefa', tarefa_id=tarefa.id)
-    # A interface nova usa POST com histórico completo. O GET legado permanece
-    # compatível com atalhos antigos e integrações já existentes.
-    if tarefa.area != 'relacionada' and request.method == 'POST':
-        solucao = request.POST.get('solucao_aplicada', '').strip()
-        resultado = request.POST.get('resultado_final', '').strip()
-        if not solucao or not resultado or not request.POST.get('cliente_notificado'):
-            messages.error(request, 'Informe a solução, o resultado e confirme que o cliente foi notificado.')
-            return redirect(f"{reverse('detalhes_tarefa', args=[tarefa.id])}#encerramento")
-        tarefa.solucao_aplicada = solucao
-        tarefa.resultado_final = resultado
-        tarefa.causa_raiz = request.POST.get('causa_raiz', '').strip()
-        tarefa.cliente_notificado = True
-        tarefa.sugerir_base_conhecimento = bool(request.POST.get('sugerir_base_conhecimento'))
     tarefa.encerrada = True
     tarefa.encerrado_em = timezone.now()
     tarefa.save()
